@@ -48,9 +48,10 @@ deploy せず、前回公開版を維持する。原本はリポジトリにコ�
 サブスク実質価格 = 試行平均API料金 × 月額料金 / 月平均API換算価値
 ```
 
-月額・API 換算価値は gist の概要表、対応モデルは各プランのモデル表から抽出する。
-同じ文書内の説明文と表が異なる場合、表を採用。モデル別 API 換算値ではなく、
-複数モデルで共有されるプラン全体の比率を利用する。
+gist は概要表から料金と API 換算価値を、各プランのモデル表から対応モデルを抽出する。
+説明文と表が異なる場合は表を採用し、複数モデルで共有されるプラン全体の比率を使う。
+CodingPlans は `Plans ranked by value` 表から料金・API 換算価値・モデルを抽出する。
+各 CodingPlans プランは、サイトがその行に表示する単一モデルにだけ適用する。
 
 - Terminal-Bench: `total_cost_usd / n_trials`。スコアは `accuracy`。
 - FrontierCode: `cost` は rollout 平均 USD。スコアは `new_score × 100`。
@@ -80,6 +81,7 @@ go test ./...
   [公開 JSON](https://cognition.com/data/frontier-code-2.0/data.json)。
 - [AI subscription value summary](https://gist.githubusercontent.com/ngardiner/d577b3c9f3ca283937879bae8460102b/raw/ai_subscription_value_summary.md):
   revision なしの最新 Markdown。固定 revision を使う場合は `-subscription-url` 指定。
+- [CodingPlans](https://codingplans.app/): `Plans ranked by value` の表を取得。URL の変更は `-codingplans-url` で指定。
 
 `data/` の保存内容:
 
@@ -90,6 +92,7 @@ go test ./...
 | `terminal-bench.rsc` | server action 応答原本。JSON を抽出して読み込む |
 | `frontiercode.json` | FrontierCode 公開 JSON 原本 |
 | `ai_subscription_value_summary.md` | gist の Markdown 原文 |
+| `codingplans.html` | CodingPlans ページ原本 |
 | `sources.json` | 取得 URL・ファイル名・取得日時 |
 
 Terminal-Bench の server action は公開ページの内部インターフェース。

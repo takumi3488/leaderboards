@@ -215,3 +215,64 @@ func assertNear(t *testing.T, got, want, tolerance float64) {
 		t.Fatalf("got %g, want %g (tolerance %g)", got, want, tolerance)
 	}
 }
+
+func TestParseCodingPlansSnapshot(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", codingPlansHTMLFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plans, err := parseCodingPlans(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 22 {
+		t.Fatalf("got %d usable plans, want 22 model-bearing rows", len(plans))
+	}
+	var claude, google *subscription
+	for i := range plans {
+		switch plans[i].Name {
+		case "Claude Max 20x · CodingPlans":
+			claude = &plans[i]
+		case "Google AI Ultra · CodingPlans":
+			google = &plans[i]
+		case "Zed Pro · CodingPlans":
+			t.Fatal("parsed Zed Pro, which has no single model")
+		}
+	}
+	if claude == nil {
+		t.Fatal("Claude Max 20x was not parsed")
+	}
+	if claude.MonthlyUSD != 200 || claude.APIValueUSD != 5000 || !equalStrings(claude.Models, []string{"Claude Opus 5.5"}) {
+		t.Errorf("Claude Max 20x = %+v, want $200 / $5000 for Claude Opus 5.5", *claude)
+	}
+	if google == nil || !equalStrings(google.Models, []string{"Gemini 4 Argon"}) {
+		t.Errorf("Google AI Ultra = %+v, want model Gemini 4 Argon", google)
+	}
+}
+
+func TestParseCodingPlansRejectsMissingTableAndInvalidMoney(t *testing.T) {
+	cases := []struct {
+		name string
+		data string
+		want string
+	}{
+		{"missing table", "<html><body>No plans</body></html>", "no Plans ranked by value table"},
+		{
+			"invalid price",
+			`<h2>Plans ranked by value</h2><table><tr><th scope="row"><span class="block font-medium">Broken plan</span><span class="block text-[11px]">Claude Opus 5.5</span></th><td>free</td><td>$100</td></tr></table>`,
+			`row "Broken plan" price "free"`,
+		},
+		{
+			"invalid API value",
+			`<h2>Plans ranked by value</h2><table><tr><th scope="row"><span class="block font-medium">Broken plan</span><span class="block text-[11px]">Claude Opus 5.5</span></th><td>$20</td><td>$0</td></tr></table>`,
+			`row "Broken plan" API value "$0"`,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := parseCodingPlans([]byte(test.data)); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("got error %v, want text %q", err, test.want)
+			}
+		})
+	}
+}

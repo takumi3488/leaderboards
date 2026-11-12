@@ -33,6 +33,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		flags.StringVar(&opts.TerminalURL, "terminal-url", defaultTerminalURL, "Terminal-Bench leaderboard page URL")
 		flags.StringVar(&opts.FrontierURL, "frontier-url", defaultFrontierURL, "FrontierCode JSON URL")
 		flags.StringVar(&opts.SubscriptionURL, "subscription-url", defaultSubscriptionURL, "subscription Markdown URL")
+		flags.StringVar(&opts.CodingPlansURL, "codingplans-url", defaultCodingPlansURL, "CodingPlans page URL")
 		if err := parseFlags(flags, args[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return nil
@@ -82,10 +83,10 @@ func parseFlags(flags *flag.FlagSet, args []string) error {
 func printUsage(out io.Writer) error {
 	_, err := fmt.Fprintln(out, `Usage:
   go run . fetch [-data-dir data]
-                [-terminal-url URL] [-frontier-url URL] [-subscription-url URL]
+                [-terminal-url URL] [-frontier-url URL] [-subscription-url URL] [-codingplans-url URL]
   go run . build [-data-dir data] [-output leaderboard.html]
 
-fetch saves the original benchmark responses and latest subscription Markdown.
+fetch saves the original benchmark responses and subscription sources.
 build reads only local files. Viewing the chart requires the ECharts CDN.
 Use fetch -h or build -h for flag details.`)
 	return err
@@ -105,6 +106,16 @@ func loadReport(dataDir string) (report, error) {
 	if err != nil {
 		return report{}, fmt.Errorf("parse %s: %w", path, err)
 	}
+	codingPlansPath := filepath.Join(dataDir, codingPlansHTMLFile)
+	codingPlansHTML, err := os.ReadFile(codingPlansPath)
+	if err != nil {
+		return report{}, fmt.Errorf("read CodingPlans source (run fetch first): %w", err)
+	}
+	codingPlans, err := parseCodingPlans(codingPlansHTML)
+	if err != nil {
+		return report{}, fmt.Errorf("parse %s: %w", codingPlansPath, err)
+	}
+	subscriptions = append(subscriptions, codingPlans...)
 	applySubscriptions(benchmarks, subscriptions)
 	return report{
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339),

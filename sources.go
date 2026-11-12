@@ -24,6 +24,7 @@ const (
 	terminalRSCFile          = "terminal-bench.rsc"
 	frontierJSONFile         = "frontiercode.json"
 	subscriptionMarkdownFile = "ai_subscription_value_summary.md"
+	codingPlansHTMLFile      = "codingplans.html"
 	sourcesMetadataFile      = "sources.json"
 	frontierCodePageURL      = "https://cognition.com/frontiercode"
 	terminalBenchmarkID      = "terminal-bench"
@@ -56,6 +57,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 	terminalURL := opts.TerminalURL
 	frontierURL := opts.FrontierURL
 	subscriptionURL := opts.SubscriptionURL
+	codingPlansURL := opts.CodingPlansURL
 	requestedLeaderboard, err := requestedLeaderboardName(terminalURL)
 	if err != nil {
 		return err
@@ -109,6 +111,13 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 	if _, _, err := parseSubscriptions(subscription.body); err != nil {
 		return fmt.Errorf("parse subscription Markdown: %w", err)
 	}
+	codingPlans, err := fetchDocument(ctx, client, http.MethodGet, codingPlansURL, nil, nil)
+	if err != nil {
+		return fmt.Errorf("fetch CodingPlans page: %w", err)
+	}
+	if _, err := parseCodingPlans(codingPlans.body); err != nil {
+		return fmt.Errorf("parse downloaded CodingPlans page: %w", err)
+	}
 
 	sources := []source{
 		{Name: "Terminal-Bench page", URL: page.url, File: terminalHTMLFile, FetchedAt: page.fetchedAt},
@@ -116,6 +125,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 		{Name: "Terminal-Bench leaderboard response", URL: rsc.url, File: terminalRSCFile, FetchedAt: rsc.fetchedAt},
 		{Name: "FrontierCode data", URL: frontier.url, File: frontierJSONFile, FetchedAt: frontier.fetchedAt},
 		{Name: "Subscription value Markdown", URL: subscription.url, File: subscriptionMarkdownFile, FetchedAt: subscription.fetchedAt},
+		{Name: "CodingPlans page", URL: codingPlans.url, File: codingPlansHTMLFile, FetchedAt: codingPlans.fetchedAt},
 	}
 	if err := os.MkdirAll(opts.DataDir, 0o755); err != nil {
 		return fmt.Errorf("create data directory: %w", err)
@@ -129,6 +139,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 		{terminalRSCFile, rsc.body},
 		{frontierJSONFile, frontier.body},
 		{subscriptionMarkdownFile, subscription.body},
+		{codingPlansHTMLFile, codingPlans.body},
 	}
 	for _, file := range files {
 		if err := os.WriteFile(filepath.Join(opts.DataDir, file.name), file.body, 0o644); err != nil {
