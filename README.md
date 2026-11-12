@@ -52,6 +52,7 @@ gist は概要表から料金と API 換算価値を、各プランのモデル�
 説明文と表が異なる場合は表を採用し、複数モデルで共有されるプラン全体の比率を使う。
 CodingPlans は `Plans ranked by value` 表から料金・API 換算価値・モデルを抽出する。
 各 CodingPlans プランは、サイトがその行に表示する単一モデルにだけ適用する。
+別モデルの API 価格で換算した行（`(assumed)` 表記）は除外する。
 
 - Terminal-Bench: `total_cost_usd / n_trials`。スコアは `accuracy`。
 - FrontierCode: `cost` は rollout 平均 USD。スコアは `new_score × 100`。

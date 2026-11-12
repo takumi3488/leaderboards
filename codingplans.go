@@ -3,79 +3,53 @@ package main
 import (
 	"fmt"
 	"html"
-	"math"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
 var (
-	codingPlansTableOpenRE = regexp.MustCompile(`(?i)<table\b[^>]*>`)
-	codingPlansTableEndRE  = regexp.MustCompile(`(?i)</table\s*>`)
-	codingPlansRowsRE      = regexp.MustCompile(`(?is)<tr\b[^>]*>(.*?)</tr\s*>`)
-	codingPlansHeaderRE    = regexp.MustCompile(`(?is)<th\b([^>]*)>(.*?)</th\s*>`)
-	codingPlansSpanRE      = regexp.MustCompile(`(?is)<span\b([^>]*)>([^<]*)`)
-	codingPlansCellsRE     = regexp.MustCompile(`(?is)<td\b[^>]*>(.*?)</td\s*>`)
-	codingPlansTagsRE      = regexp.MustCompile(`(?is)<[^>]+>`)
-	codingPlansAttrRE      = regexp.MustCompile(`(?i)\b([a-z_:][-a-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))`)
-	codingPlansMoneyRE     = regexp.MustCompile(`^\$?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.[0-9]+)?$`)
+	codingPlansTableRE = regexp.MustCompile(`(?s)Plans ranked by value.*?<table\b[^>]*>(.*?)</table>`)
+	codingPlansRowRE   = regexp.MustCompile(`(?s)<tr\b[^>]*>(.*?)</tr>`)
+	codingPlansHeadRE  = regexp.MustCompile(`(?s)<th scope="row"[^>]*>(.*?)</th>`)
+	codingPlansNameRE  = regexp.MustCompile(`<span class="[^"]*\bfont-medium\b[^"]*">([^<]*)`)
+	codingPlansModelRE = regexp.MustCompile(`<span class="[^"]*text-\[11px\][^"]*">([^<]*)`)
+	codingPlansCellRE  = regexp.MustCompile(`(?s)<td\b[^>]*>(.*?)</td>`)
+	codingPlansTagRE   = regexp.MustCompile(`<[^>]+>`)
 )
 
+// parseCodingPlans reads the "Plans ranked by value" table. Each plan covers
+// only the model shown under its name; rows priced at another model's API
+// rate ("(assumed)") are skipped because their factor does not fit that model.
 func parseCodingPlans(data []byte) ([]subscription, error) {
-	page := string(data)
-	heading := strings.Index(page, "Plans ranked by value")
-	if heading < 0 {
+	table := codingPlansTableRE.FindSubmatch(data)
+	if table == nil {
 		return nil, fmt.Errorf("CodingPlans page has no Plans ranked by value table")
 	}
-	afterHeading := page[heading+len("Plans ranked by value"):]
-	open := codingPlansTableOpenRE.FindStringIndex(afterHeading)
-	if open == nil {
-		return nil, fmt.Errorf("CodingPlans page has no Plans ranked by value table")
-	}
-	tableBody := afterHeading[open[1]:]
-	close := codingPlansTableEndRE.FindStringIndex(tableBody)
-	if close == nil {
-		return nil, fmt.Errorf("CodingPlans Plans ranked by value table is not closed")
-	}
-
-	rows := codingPlansRowsRE.FindAllStringSubmatch(tableBody[:close[0]], -1)
-	plans := make([]subscription, 0, len(rows))
-	for rowIndex, rowMatch := range rows {
-		row := rowMatch[1]
-		header := codingPlansHeaderRE.FindStringSubmatch(row)
-		if len(header) != 3 || !strings.EqualFold(codingPlansAttribute(header[1], "scope"), "row") {
+	var plans []subscription
+	for index, row := range codingPlansRowRE.FindAllSubmatch(table[1], -1) {
+		head := codingPlansHeadRE.FindSubmatch(row[1])
+		if head == nil || strings.Contains(string(head[1]), "(assumed)") {
 			continue
 		}
-		name := codingPlansTextForClass(header[2], "font-medium")
-		label := codingPlansTextForClass(header[2], "text-[11px]")
-		model := strings.TrimSpace(strings.SplitN(label, " · ", 2)[0])
-		if model == "" || strings.EqualFold(model, "model menu varies") {
-			continue
+		name := firstText(codingPlansNameRE, head[1])
+		model := firstText(codingPlansModelRE, head[1])
+		if name == "" || model == "" {
+			return nil, fmt.Errorf("CodingPlans row %d has no plan name or model", index+1)
 		}
-		if name == "" {
-			return nil, fmt.Errorf("CodingPlans row %d has no plan name", rowIndex+1)
-		}
-		rowName := name
-		cells := codingPlansCellsRE.FindAllStringSubmatch(row, -1)
+		cells := codingPlansCellRE.FindAllSubmatch(row[1], 2)
 		if len(cells) < 2 {
-			return nil, fmt.Errorf("CodingPlans row %q has fewer than two price cells", rowName)
+			return nil, fmt.Errorf("CodingPlans row %q has fewer than two price cells", name)
 		}
-		priceText := codingPlansCellText(cells[0][1])
-		price, err := parseCodingPlansMoney(priceText)
-		if err != nil {
-			return nil, fmt.Errorf("CodingPlans row %q price %q: %w", rowName, priceText, err)
+		var amounts [2]float64
+		for i, label := range []string{"price", "API value"} {
+			raw := strings.TrimSpace(html.UnescapeString(codingPlansTagRE.ReplaceAllString(string(cells[i][1]), "")))
+			amount, err := parseSubscriptionAmount(raw)
+			if err != nil || amount <= 0 {
+				return nil, fmt.Errorf("CodingPlans row %q %s %q is not a positive USD amount", name, label, raw)
+			}
+			amounts[i] = amount
 		}
-		valueText := codingPlansCellText(cells[1][1])
-		value, err := parseCodingPlansMoney(valueText)
-		if err != nil {
-			return nil, fmt.Errorf("CodingPlans row %q API value %q: %w", rowName, valueText, err)
-		}
-		plans = append(plans, subscription{
-			Name:        name + " · CodingPlans",
-			MonthlyUSD:  price,
-			APIValueUSD: value,
-			Models:      []string{model},
-		})
+		plans = append(plans, subscription{Name: name + " · CodingPlans", MonthlyUSD: amounts[0], APIValueUSD: amounts[1], Models: []string{model}})
 	}
 	if len(plans) == 0 {
 		return nil, fmt.Errorf("CodingPlans Plans ranked by value table has no usable model rows")
@@ -83,45 +57,10 @@ func parseCodingPlans(data []byte) ([]subscription, error) {
 	return plans, nil
 }
 
-func codingPlansTextForClass(content, class string) string {
-	for _, match := range codingPlansSpanRE.FindAllStringSubmatch(content, -1) {
-		classes := strings.Fields(codingPlansAttribute(match[1], "class"))
-		for _, candidate := range classes {
-			if candidate == class {
-				return strings.TrimSpace(html.UnescapeString(match[2]))
-			}
-		}
-	}
-	return ""
-}
-
-func codingPlansAttribute(attributes, name string) string {
-	for _, match := range codingPlansAttrRE.FindAllStringSubmatch(attributes, -1) {
-		if !strings.EqualFold(match[1], name) {
-			continue
-		}
-		for _, value := range match[2:] {
-			if value != "" {
-				return value
-			}
-		}
+func firstText(pattern *regexp.Regexp, content []byte) string {
+	match := pattern.FindSubmatch(content)
+	if match == nil {
 		return ""
 	}
-	return ""
-}
-
-func codingPlansCellText(content string) string {
-	return strings.TrimSpace(html.UnescapeString(codingPlansTagsRE.ReplaceAllString(content, "")))
-}
-
-func parseCodingPlansMoney(raw string) (float64, error) {
-	if !codingPlansMoneyRE.MatchString(raw) {
-		return 0, fmt.Errorf("invalid USD amount")
-	}
-	valueText := strings.ReplaceAll(strings.TrimPrefix(raw, "$"), ",", "")
-	value, err := strconv.ParseFloat(valueText, 64)
-	if err != nil || value <= 0 || math.IsInf(value, 0) || math.IsNaN(value) {
-		return 0, fmt.Errorf("USD amount must be positive")
-	}
-	return value, nil
+	return strings.TrimSpace(html.UnescapeString(string(match[1])))
 }

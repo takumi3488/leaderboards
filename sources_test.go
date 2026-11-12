@@ -225,18 +225,16 @@ func TestParseCodingPlansSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plans) != 22 {
-		t.Fatalf("got %d usable plans, want 22 model-bearing rows", len(plans))
+	if len(plans) != 20 {
+		t.Fatalf("got %d usable plans, want 20 rows priced at their own model", len(plans))
 	}
-	var claude, google *subscription
+	var claude *subscription
 	for i := range plans {
 		switch plans[i].Name {
 		case "Claude Max 20x · CodingPlans":
 			claude = &plans[i]
-		case "Google AI Ultra · CodingPlans":
-			google = &plans[i]
-		case "Zed Pro · CodingPlans":
-			t.Fatal("parsed Zed Pro, which has no single model")
+		case "Google AI Ultra · CodingPlans", "Google AI Pro · CodingPlans", "Zed Pro · CodingPlans":
+			t.Errorf("parsed %s, whose API value assumes another model's price", plans[i].Name)
 		}
 	}
 	if claude == nil {
@@ -244,9 +242,6 @@ func TestParseCodingPlansSnapshot(t *testing.T) {
 	}
 	if claude.MonthlyUSD != 200 || claude.APIValueUSD != 5000 || !equalStrings(claude.Models, []string{"Claude Opus 5.5"}) {
 		t.Errorf("Claude Max 20x = %+v, want $200 / $5000 for Claude Opus 5.5", *claude)
-	}
-	if google == nil || !equalStrings(google.Models, []string{"Gemini 4 Argon"}) {
-		t.Errorf("Google AI Ultra = %+v, want model Gemini 4 Argon", google)
 	}
 }
 
