@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-11-10",
+  "mix": {"cache": 0.97, "input": 0.025, "output": 0.005},
+  "points": [
+    {"billing": "subscription", "plan": "Astra Plan", "plan_en": null, "vendor": "OpenAI", "model": "gpt-6-astra", "price_usd": 20, "real_usd_per_mtok": 8, "unmetered": false, "confidence": "medium"},
+    {"billing": "subscription", "plan": "Astra Plan", "plan_en": null, "vendor": "OpenAI", "model": "gpt-6-astra", "price_usd": 20, "real_usd_per_mtok": 6, "unmetered": false, "confidence": "high"},
+    {"billing": "subscription", "plan": "Premium Plan", "plan_en": null, "vendor": "OpenAI", "model": "gpt-6-astra", "price_usd": 40, "real_usd_per_mtok": 8, "unmetered": false, "confidence": "medium"},
+    {"billing": "subscription", "plan": "Excluded unmetered", "plan_en": null, "vendor": "OpenAI", "model": "gpt-6-astra", "price_usd": 20, "real_usd_per_mtok": 1, "unmetered": true, "confidence": "high"},
+    {"billing": "subscription", "plan": "Excluded invalid", "plan_en": null, "vendor": "OpenAI", "model": "gpt-6-astra", "price_usd": 20, "real_usd_per_mtok": 0, "unmetered": false, "confidence": "high"},
+    {"billing": "subscription", "plan": "Measured Plan", "plan_en": "Measured English Plan", "vendor": "Anthropic", "model": "gpt-5.6-sol", "price_usd": 30, "real_usd_per_mtok": 0.294, "unmetered": false, "confidence": "low"},
+    {"billing": "subscription", "plan": "No API Plan", "plan_en": null, "vendor": "Example", "model": "model-without-api-price", "price_usd": 10, "real_usd_per_mtok": 1, "unmetered": false, "confidence": "medium"},
+    {"billing": "metered", "plan": "", "plan_en": null, "vendor": "OpenAI", "model": "gpt-5.6-sol", "price_usd": 0, "real_usd_per_mtok": 0.588, "unmetered": false, "confidence": "high"}
+  ]
+}

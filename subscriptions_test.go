@@ -1,109 +1,87 @@
 package main
 
 import (
-	"math"
+	"encoding/json"
 	"os"
-	"strings"
 	"testing"
 )
 
-func TestApplySubscriptionsExactMatchingAndPricing(t *testing.T) {
-	data, err := os.ReadFile("testdata/subscriptions.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	subscriptions, _, err := parseSubscriptions(data)
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestApplySubscriptionsUsesTokensAndMeteredRatios(t *testing.T) {
+	pricing := readPricingFixture(t)
 	benchmarks := []benchmark{{Points: []point{
-		{Model: "anthropic/CLAUDE_SONNET_4.6", APICost: 100},
-		{Model: "Sonnet 5", APICost: 100},
-		{Model: "Opus 5.5", APICost: 100},
-		{Model: "openai/gpt.6_luna", APICost: 0},
-		{Model: "Claude Fable 5.2", APICost: 100},
-		{Model: "Gemini 4 Carbon", APICost: 100},
-		{Model: "claude-sonnet-5-preview", APICost: 100},
+		{Model: "GPT-6 Astra", Tokens: 500_000, APICost: 99},
+		{Model: "gpt-5.6-sol", APICost: 1.176},
 	}}}
-	applySubscriptions(benchmarks, subscriptions)
+	plans := applySubscriptions(benchmarks, pricing.Points)
 	points := benchmarks[0].Points
-
-	if got, want := offerCost(points[0].Offers, "Claude Pro"), 100*20/972.32; math.IsNaN(got) || math.Abs(got-want) > 1e-12 {
-		t.Errorf("Claude Pro cost = %.12f, want %.12f", got, want)
+	if got, want := offerPlanNames(points[0].Offers), []string{"Astra Plan", "Premium Plan"}; !equalStrings(got, want) {
+		t.Fatalf("offers sorted by cost = %v, want %v", got, want)
 	}
-	if got, want := offerPlanNames(points[1].Offers), []string{"Claude Max", "Claude Pro", "Kiro", "Kiro Power"}; !equalStrings(got, want) {
-		t.Errorf("Sonnet 5 plans = %v, want %v", got, want)
+	assertNear(t, points[0].Offers[0].Cost, 3, 1e-12)
+	assertNear(t, points[0].Offers[1].Cost, 4, 1e-12)
+	assertNear(t, points[0].Offers[0].USDPerMTok, 6, 1e-12)
+	if points[0].Offers[0].Confidence != "high" {
+		t.Errorf("duplicate did not keep cheaper row's confidence: %+v", points[0].Offers[0])
 	}
-	if got, want := offerCost(points[1].Offers, "Claude Max"), 100*200/17557.85; math.IsNaN(got) || math.Abs(got-want) > 1e-12 {
-		t.Errorf("Claude Max cost = %.12f, want %.12f", got, want)
+	if len(points[1].Offers) != 1 || points[1].Offers[0].Plan != "Measured English Plan" {
+		t.Fatalf("metered ratio offer = %+v", points[1].Offers)
 	}
-	if got := offerPlanNames(points[2].Offers); !equalStrings(got, []string{"Claude Max"}) {
-		t.Errorf("bare Opus 5.5 plans = %v, want [Claude Max]", got)
-	}
-	if got := offerPlanNames(points[3].Offers); !equalStrings(got, []string{"ChatGPT Plus"}) {
-		t.Errorf("cosmetic GPT match plans = %v, want [ChatGPT Plus]", got)
-	}
-	for _, index := range []int{4, 5, 6} {
-		if len(points[index].Offers) != 0 {
-			t.Errorf("%q unexpectedly matched offers %v", points[index].Model, points[index].Offers)
-		}
+	assertNear(t, points[1].Offers[0].Cost, 0.588, 1e-12)
+	if len(plans) != 3 {
+		t.Fatalf("used plans = %+v, want only three plans that produced offers", plans)
 	}
 }
 
-func TestApplySubscriptionsZeroAPICostAndDuplicateAliases(t *testing.T) {
-	plans := []subscription{{Name: "One", MonthlyUSD: 10, APIValueUSD: 20, Models: []string{"anthropic/claude-opus-5-5", "claude.opus_5 5"}}, {Name: "Two", MonthlyUSD: 5, APIValueUSD: 10, Models: []string{"claude-opus-5-5"}}}
-	benchmarks := []benchmark{{Points: []point{{Model: "Opus 5.5", APICost: 0}}}}
-	applySubscriptions(benchmarks, plans)
-	offers := benchmarks[0].Points[0].Offers
-	if len(offers) != 2 {
-		t.Fatalf("got %d offers, want one per matching plan: %v", len(offers), offers)
+func TestApplySubscriptionsUsesHandAPIPricesAndSkipsMissingFallback(t *testing.T) {
+	pricing := readPricingFixture(t)
+	benchmarks := []benchmark{{Points: []point{
+		{Model: "gpt-6-astra", APICost: 1},
+		{Model: "model-without-api-price", APICost: 1},
+	}}}
+	applySubscriptions(benchmarks, pricing.Points)
+	points := benchmarks[0].Points
+	if len(points[0].Offers) != 2 {
+		t.Fatalf("hand-table offers = %+v, want two offers", points[0].Offers)
 	}
-	if got, want := offerPlanNames(offers), []string{"One", "Two"}; !equalStrings(got, want) {
-		t.Errorf("zero-cost offers = %v, want tie-sorted %v", got, want)
+	assertNear(t, points[0].Offers[0].Cost, 6/1.47, 1e-12)
+	if got := apiPrices(append(pricing.Points, pricingPoint{Billing: "metered", Model: "gpt-6-astra", RealUSDPerMTok: 0.123}))["gpt-6-astra"]; got != 0.123 {
+		t.Errorf("metered API price = %g, want source rate 0.123 over the hand table", got)
 	}
-	for _, got := range offers {
-		if got.Cost != 0 {
-			t.Errorf("zero API cost produced subscription cost %v", got.Cost)
-		}
-	}
-}
-
-func TestParseSubscriptionsRejectsInvalidOverviewAndDetails(t *testing.T) {
-	base := validSubscriptionMarkdown()
-	tests := []struct {
-		name string
-		data string
-	}{
-		{"zero API value", strings.Replace(base, "$25.00", "$0.00", 1)},
-		{"malformed API value", strings.Replace(base, "$25.00", "$nope", 1)},
-		{"empty API value", strings.Replace(base, "$25.00", "", 1)},
-		{"missing API value column", strings.Replace(base, " | Avg API Value (USD)", "", 1)},
-		{"missing details block", strings.Replace(base, validDetailsBlock(), "", 1)},
-		{"unlinked details plan", strings.Replace(base, "Alpha - Long - per-model averages", "Other Plan - per-model averages", 1)},
-		{"missing model table", strings.Replace(base, "| Model | Periods |", "| Name | Periods |", 1)},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if _, _, err := parseSubscriptions([]byte(test.data)); err == nil {
-				t.Fatal("parseSubscriptions succeeded, want an error")
-			}
-		})
+	if len(points[1].Offers) != 0 {
+		t.Errorf("model without tokens or API price got offers: %+v", points[1].Offers)
 	}
 }
 
-func TestParseSubscriptionDetailsStopsAtSecondTable(t *testing.T) {
-	data := strings.Replace(
-		validSubscriptionMarkdown(),
-		"\n</details>",
-		"\n\nPer period:\n\n| Period | Value |\n|---|---|\n| #14 | $1 |\n</details>",
-		1,
-	)
-	plans, _, err := parseSubscriptions([]byte(data))
+func TestParseRealPricingValidationAndSkippedRows(t *testing.T) {
+	fixture, err := os.ReadFile("testdata/real-api-pricing.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := plans[0].Models, []string{"claude-opus-5"}; !equalStrings(got, want) {
-		t.Errorf("models = %v, want only %v", got, want)
+	pricing, err := parseRealPricing(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	benchmarks := []benchmark{{Points: []point{{Model: "gpt-6-astra", Tokens: 1_000_000}}}}
+	applySubscriptions(benchmarks, pricing.Points)
+	if got, want := offerPlanNames(benchmarks[0].Points[0].Offers), []string{"Astra Plan", "Premium Plan"}; !equalStrings(got, want) {
+		t.Fatalf("unmetered/invalid rows were not skipped: offers=%v", got)
+	}
+	for _, raw := range []string{
+		`{"generatedAt":"2026-11-10","points":[]}`,
+		`{"generatedAt":"2026-11-10","points":[{"billing":"subscription","plan":"Bad","vendor":"OpenAI","model":"x","price_usd":10,"real_usd_per_mtok":0,"confidence":"high"}]}`,
+		`{"generatedAt":"bad-date","points":[{"billing":"subscription","plan":"Okay","vendor":"OpenAI","model":"x","price_usd":10,"real_usd_per_mtok":1,"confidence":"high"}]}`,
+	} {
+		if _, err := parseRealPricing([]byte(raw)); err == nil {
+			t.Errorf("accepted unusable real-api-pricing JSON: %s", raw)
+		}
+	}
+}
+
+func TestBlendAPIPricesUsesStandardWorkload(t *testing.T) {
+	assertNear(t, (apiPrice{CacheRead: 0.4, FreshInput: 4, Output: 20}).blendedUSDPerMTok(), 0.588, 1e-12)
+	assertNear(t, (apiPrice{CacheRead: 0.5, FreshInput: 6.25, Output: 25}).blendedUSDPerMTok(), 0.76625, 1e-12)
+	if got := handAPIPrices["claude-fable-5.2"].FreshInput; got != 10 {
+		t.Errorf("Claude fresh-input rate = %g, want 5-minute cache-write rate 10", got)
 	}
 }
 
@@ -130,37 +108,20 @@ func TestCanonicalModelCosmeticEquivalence(t *testing.T) {
 	}
 }
 
-func validSubscriptionMarkdown() string {
-	return `*Last updated: 2026-11-09*
-
-## Subscription Performance Overview
-
-| Subscription | Avg Cost (USD) | Avg API Value (USD) |
-|--------------|----------------|---------------------|
-| Alpha - Long | $10.00 | $25.00 |
-
-` + validDetailsBlock()
-}
-
-func validDetailsBlock() string {
-	return `<details>
-<summary><strong>Alpha - Long - per-model averages (1 period)</strong></summary>
-
-| Model | Periods |
-|-------|---------|
-| claude-opus-5 | 1 |
-
-</details>
-`
-}
-
-func offerCost(offers []offer, plan string) float64 {
-	for _, candidate := range offers {
-		if candidate.Plan == plan {
-			return candidate.Cost
-		}
+func readPricingFixture(t *testing.T) pricingData {
+	t.Helper()
+	data, err := os.ReadFile("testdata/real-api-pricing.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-	return math.NaN()
+	var pricing pricingData
+	if err := json.Unmarshal(data, &pricing); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseRealPricing(data); err != nil {
+		t.Fatal(err)
+	}
+	return pricing
 }
 
 func offerPlanNames(offers []offer) []string {
@@ -181,4 +142,15 @@ func equalStrings(left, right []string) bool {
 		}
 	}
 	return true
+}
+
+func TestRealPricingSourcePointUsesEnglishName(t *testing.T) {
+	point := pricingPoint{Plan: "Chinese", PlanEN: new("English")}
+	if got := displayPlan(point); got != "English" {
+		t.Errorf("displayPlan = %q, want English", got)
+	}
+	point.PlanEN = new(" ")
+	if got := displayPlan(point); got != "Chinese" {
+		t.Errorf("displayPlan = %q, want fallback name", got)
+	}
 }

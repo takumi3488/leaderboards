@@ -19,16 +19,15 @@ import (
 )
 
 const (
-	terminalHTMLFile         = "terminal-bench.html"
-	terminalActionFile       = "terminal-bench-action.js"
-	terminalRSCFile          = "terminal-bench.rsc"
-	frontierJSONFile         = "frontiercode.json"
-	subscriptionMarkdownFile = "ai_subscription_value_summary.md"
-	codingPlansHTMLFile      = "codingplans.html"
-	sourcesMetadataFile      = "sources.json"
-	frontierCodePageURL      = "https://cognition.com/frontiercode"
-	terminalBenchmarkID      = "terminal-bench"
-	frontierCodeBenchmarkID  = "frontier-code"
+	terminalHTMLFile        = "terminal-bench.html"
+	terminalActionFile      = "terminal-bench-action.js"
+	terminalRSCFile         = "terminal-bench.rsc"
+	frontierJSONFile        = "frontiercode.json"
+	realPricingJSONFile     = "real-api-pricing.json"
+	sourcesMetadataFile     = "sources.json"
+	frontierCodePageURL     = "https://cognition.com/frontiercode"
+	terminalBenchmarkID     = "terminal-bench"
+	frontierCodeBenchmarkID = "frontier-code"
 )
 
 var (
@@ -56,8 +55,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 	}
 	terminalURL := opts.TerminalURL
 	frontierURL := opts.FrontierURL
-	subscriptionURL := opts.SubscriptionURL
-	codingPlansURL := opts.CodingPlansURL
+	pricingURL := opts.PricingURL
 	requestedLeaderboard, err := requestedLeaderboardName(terminalURL)
 	if err != nil {
 		return err
@@ -104,19 +102,12 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 	if _, err := parseFrontierCode(frontier.body, frontierCodePageURL); err != nil {
 		return fmt.Errorf("parse downloaded FrontierCode data: %w", err)
 	}
-	subscription, err := fetchDocument(ctx, client, http.MethodGet, subscriptionURL, nil, nil)
+	pricing, err := fetchDocument(ctx, client, http.MethodGet, pricingURL, nil, nil)
 	if err != nil {
-		return fmt.Errorf("fetch subscription Markdown: %w", err)
+		return fmt.Errorf("fetch real-api-pricing data: %w", err)
 	}
-	if _, _, err := parseSubscriptions(subscription.body); err != nil {
-		return fmt.Errorf("parse subscription Markdown: %w", err)
-	}
-	codingPlans, err := fetchDocument(ctx, client, http.MethodGet, codingPlansURL, nil, nil)
-	if err != nil {
-		return fmt.Errorf("fetch CodingPlans page: %w", err)
-	}
-	if _, err := parseCodingPlans(codingPlans.body); err != nil {
-		return fmt.Errorf("parse downloaded CodingPlans page: %w", err)
+	if _, err := parseRealPricing(pricing.body); err != nil {
+		return fmt.Errorf("parse downloaded real-api-pricing data: %w", err)
 	}
 
 	sources := []source{
@@ -124,8 +115,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 		{Name: "Terminal-Bench server-action bundle", URL: actionURL, File: terminalActionFile, FetchedAt: actionFetchedAt},
 		{Name: "Terminal-Bench leaderboard response", URL: rsc.url, File: terminalRSCFile, FetchedAt: rsc.fetchedAt},
 		{Name: "FrontierCode data", URL: frontier.url, File: frontierJSONFile, FetchedAt: frontier.fetchedAt},
-		{Name: "Subscription value Markdown", URL: subscription.url, File: subscriptionMarkdownFile, FetchedAt: subscription.fetchedAt},
-		{Name: "CodingPlans page", URL: codingPlans.url, File: codingPlansHTMLFile, FetchedAt: codingPlans.fetchedAt},
+		{Name: "Real API pricing data", URL: pricing.url, File: realPricingJSONFile, FetchedAt: pricing.fetchedAt},
 	}
 	if err := os.MkdirAll(opts.DataDir, 0o755); err != nil {
 		return fmt.Errorf("create data directory: %w", err)
@@ -138,8 +128,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 		{terminalActionFile, actionBody},
 		{terminalRSCFile, rsc.body},
 		{frontierJSONFile, frontier.body},
-		{subscriptionMarkdownFile, subscription.body},
-		{codingPlansHTMLFile, codingPlans.body},
+		{realPricingJSONFile, pricing.body},
 	}
 	for _, file := range files {
 		if err := os.WriteFile(filepath.Join(opts.DataDir, file.name), file.body, 0o644); err != nil {
@@ -408,6 +397,7 @@ type terminalActionMetrics struct {
 	Accuracy     *float64 `json:"accuracy"`
 	TotalCostUSD *float64 `json:"total_cost_usd"`
 	NTrials      *int64   `json:"n_trials"`
+	TotalTokens  *float64 `json:"total_tokens"`
 }
 
 func parseTerminalBenchmark(response []byte, sourceURL string) (benchmark, error) {
@@ -438,6 +428,13 @@ func parseTerminalBenchmark(response []byte, sourceURL string) (benchmark, error
 		if *row.Metrics.NTrials <= 0 {
 			return benchmark{}, fmt.Errorf("display row %d has invalid n_trials %d; expected a positive count", index, *row.Metrics.NTrials)
 		}
+		tokens := float64(0)
+		if row.Metrics.TotalTokens != nil {
+			if *row.Metrics.TotalTokens < 0 {
+				return benchmark{}, fmt.Errorf("display row %d has invalid total_tokens %g; expected a non-negative count", index, *row.Metrics.TotalTokens)
+			}
+			tokens = *row.Metrics.TotalTokens / float64(*row.Metrics.NTrials)
+		}
 		points = append(points, point{
 			ID:      row.ID,
 			Model:   row.Metadata.ModelDisplay.Label,
@@ -445,6 +442,7 @@ func parseTerminalBenchmark(response []byte, sourceURL string) (benchmark, error
 			Effort:  row.Metadata.ReasoningEffort,
 			Score:   *row.Metrics.Accuracy,
 			APICost: *row.Metrics.TotalCostUSD / float64(*row.Metrics.NTrials),
+			Tokens:  tokens,
 		})
 	}
 	if len(points) == 0 {
