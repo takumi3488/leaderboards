@@ -55,10 +55,12 @@ type fetchOptions struct {
 	TerminalURL     string
 	FrontierURL     string
 	SubscriptionURL string
+	CodingPlansURL  string
 }
 
 const (
 	defaultTerminalURL     = "https://hub.harborframework.com/datasets/terminal-bench/terminal-bench/5?tab=leaderboard&leaderboard=4-1-0"
 	defaultFrontierURL     = "https://cognition.com/data/frontier-code-2.0/data.json"
 	defaultSubscriptionURL = "https://gist.githubusercontent.com/ngardiner/d577b3c9f3ca283937879bae8460102b/raw/ai_subscription_value_summary.md"
+	defaultCodingPlansURL  = "https://codingplans.app/"
 )

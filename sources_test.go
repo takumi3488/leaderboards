@@ -215,3 +215,59 @@ func assertNear(t *testing.T, got, want, tolerance float64) {
 		t.Fatalf("got %g, want %g (tolerance %g)", got, want, tolerance)
 	}
 }
+
+func TestParseCodingPlansSnapshot(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", codingPlansHTMLFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plans, err := parseCodingPlans(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 20 {
+		t.Fatalf("got %d usable plans, want 20 rows priced at their own model", len(plans))
+	}
+	var claude *subscription
+	for i := range plans {
+		switch plans[i].Name {
+		case "Claude Max 20x · CodingPlans":
+			claude = &plans[i]
+		case "Google AI Ultra · CodingPlans", "Google AI Pro · CodingPlans", "Zed Pro · CodingPlans":
+			t.Errorf("parsed %s, whose API value assumes another model's price", plans[i].Name)
+		}
+	}
+	if claude == nil {
+		t.Fatal("Claude Max 20x was not parsed")
+	}
+	if claude.MonthlyUSD != 200 || claude.APIValueUSD != 5000 || !equalStrings(claude.Models, []string{"Claude Opus 5.5"}) {
+		t.Errorf("Claude Max 20x = %+v, want $200 / $5000 for Claude Opus 5.5", *claude)
+	}
+}
+
+func TestParseCodingPlansRejectsMissingTableAndInvalidMoney(t *testing.T) {
+	cases := []struct {
+		name string
+		data string
+		want string
+	}{
+		{"missing table", "<html><body>No plans</body></html>", "no Plans ranked by value table"},
+		{
+			"invalid price",
+			`<h2>Plans ranked by value</h2><table><tr><th scope="row"><span class="block font-medium">Broken plan</span><span class="block text-[11px]">Claude Opus 5.5</span></th><td>free</td><td>$100</td></tr></table>`,
+			`row "Broken plan" price "free"`,
+		},
+		{
+			"invalid API value",
+			`<h2>Plans ranked by value</h2><table><tr><th scope="row"><span class="block font-medium">Broken plan</span><span class="block text-[11px]">Claude Opus 5.5</span></th><td>$20</td><td>$0</td></tr></table>`,
+			`row "Broken plan" API value "$0"`,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := parseCodingPlans([]byte(test.data)); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("got error %v, want text %q", err, test.want)
+			}
+		})
+	}
+}
