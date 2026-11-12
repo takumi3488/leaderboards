@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>モデル比較 — スコアとコスト</title>
+  <title data-i18n="title">Model comparison — score and cost</title>
   <style>
     :root {
       color-scheme: light;
@@ -164,37 +164,37 @@
   </style>
 </head>
 <body>
-  <a class="skip-link" href="#results">結果へ移動</a>
+  <a class="skip-link" href="#results" data-i18n="skipLink">Skip to results</a>
   <div class="page">
     <header class="masthead">
       <div>
-        <h1>モデル比較</h1>
-        <p class="subtitle">ベンチマークスコアと1回あたりの表示コスト</p>
+        <h1 data-i18n="titleHeading">Model comparison</h1>
+        <p class="subtitle" data-i18n="subtitle">Benchmark score and display cost per run</p>
       </div>
-      <div class="updated" aria-label="データ更新情報">
-        <p>レポート作成: <time id="generated-at">—</time></p>
-        <p>サブスクリプション情報: <time id="subscription-updated">—</time></p>
+      <div class="updated" aria-label="Data update information" data-i18n-aria-label="updatedLabel">
+        <p><span data-i18n="generatedAtLabel">Report generated:</span> <time id="generated-at"></time></p>
+        <p><span data-i18n="subscriptionUpdatedLabel">Subscription data:</span> <time id="subscription-updated"></time></p>
       </div>
     </header>
 
     <main id="results">
-      <section class="controls" aria-label="比較条件">
+      <section class="controls" aria-label="Comparison settings" data-i18n-aria-label="controlsLabel">
         <div class="control">
-          <label for="benchmark-select">ベンチマーク</label>
+          <label for="benchmark-select" data-i18n="benchmarkLabel">Benchmark</label>
           <select id="benchmark-select"></select>
         </div>
         <fieldset class="control">
-          <legend>コスト表示</legend>
+          <legend data-i18n="costDisplayLegend">Cost display</legend>
           <div class="choice-row">
-            <label><input type="radio" name="cost-mode" value="api"> API</label>
-            <label><input type="radio" name="cost-mode" value="subscription" checked> サブスク換算</label>
+            <label><input type="radio" name="cost-mode" value="api"> <span data-i18n="apiMode">API</span></label>
+            <label><input type="radio" name="cost-mode" value="subscription" checked> <span data-i18n="subscriptionMode">Subscription estimate</span></label>
           </div>
         </fieldset>
         <fieldset class="control">
-          <legend>横軸スケール</legend>
+          <legend data-i18n="axisScaleLegend">X-axis scale</legend>
           <div class="choice-row">
-            <label><input type="radio" name="axis-scale" value="log" checked> 対数</label>
-            <label><input type="radio" name="axis-scale" value="linear"> 線形</label>
+            <label><input type="radio" name="axis-scale" value="log" checked> <span data-i18n="logScale">Logarithmic</span></label>
+            <label><input type="radio" name="axis-scale" value="linear"> <span data-i18n="linearScale">Linear</span></label>
           </div>
         </fieldset>
       </section>
@@ -202,48 +202,48 @@
       <details id="subscription-panel" class="sub-panel" aria-labelledby="subscription-heading">
         <summary class="sub-heading">
           <span class="sub-heading-content">
-            <span id="subscription-heading" class="sub-heading-title">換算に使うプラン</span>
+            <span id="subscription-heading" class="sub-heading-title" data-i18n="subscriptionHeading">Plans used for estimates</span>
             <span id="enabled-plan-count" class="sub-count" aria-live="polite"></span>
           </span>
         </summary>
-        <p class="sub-instruction">複数を選ぶと、モデルごとに最も低い一致プランを使います。</p>
+        <p class="sub-instruction" data-i18n="subscriptionInstruction">When multiple plans are selected, the lowest matching plan is used for each model.</p>
         <div id="subscription-list" class="sub-list"></div>
       </details>
 
-      <section class="analysis" aria-label="スコアとコストの比較">
+      <section class="analysis" aria-label="Score and cost comparison" data-i18n-aria-label="analysisLabel">
         <div class="chart-panel">
           <div class="chart-topline">
-            <h2>スコア × コスト</h2>
+            <h2 data-i18n="chartHeading">Score × cost</h2>
             <div id="chart-count" class="chart-count" aria-live="polite"></div>
           </div>
           <p id="chart-note" class="chart-note"></p>
-          <p id="fallback-legend" class="fallback-legend"><span class="fallback-dot" aria-hidden="true"></span> 中抜き丸は API fallback（有効なプラン一致なし）</p>
+          <p id="fallback-legend" class="fallback-legend"><span class="fallback-dot" aria-hidden="true"></span> <span data-i18n="fallbackLegend">Hollow circles indicate API fallback (no enabled plan match)</span></p>
           <p id="chart-empty" class="chart-empty" hidden></p>
-          <p id="chart-failure" class="chart-failure" role="status" hidden>グラフライブラリを読み込めませんでした。ネットワーク接続を確認してください。結果表は引き続き利用できます。</p>
-          <div id="chart" role="img" aria-label="ベンチマークスコアと表示コストの散布図"></div>
+          <p id="chart-failure" class="chart-failure" role="status" hidden data-i18n="chartFailure">The chart library could not be loaded. Check your network connection. The results table is still available.</p>
+          <div id="chart" role="img" aria-label="Scatter plot of benchmark score and display cost" data-i18n-aria-label="chartLabel"></div>
         </div>
         <aside class="model-panel" aria-labelledby="model-heading">
-          <div class="section-heading"><h2 id="model-heading">モデル</h2></div>
-          <p class="model-help">表示するモデルを選択</p>
+          <div class="section-heading"><h2 id="model-heading" data-i18n="modelsHeading">Models</h2></div>
+          <p class="model-help" data-i18n="modelHelp">Choose models to display</p>
           <div id="model-list" class="model-list"></div>
         </aside>
       </section>
 
       <section class="table-section" aria-labelledby="table-heading">
         <div class="table-intro">
-          <h2 id="table-heading" style="margin:0;font-size:1rem;font-weight:650">結果一覧</h2>
-          <p>現在の条件で絞り込み、スコアの高い順に表示</p>
+          <h2 id="table-heading" style="margin:0;font-size:1rem;font-weight:650" data-i18n="resultsHeading">Results</h2>
+          <p data-i18n="resultsDescription">Filtered by the current settings, sorted by score (highest first)</p>
         </div>
-        <div class="table-scroll" tabindex="0" aria-label="結果一覧。横にスクロールできます">
+        <div class="table-scroll" tabindex="0" aria-label="Results table. Scroll horizontally to view all columns" data-i18n-aria-label="tableScrollLabel">
           <table>
             <thead><tr>
-              <th scope="col">モデル</th>
-              <th scope="col">エージェント</th>
-              <th scope="col">Effort</th>
-              <th scope="col" class="numeric" id="table-score-heading">スコア</th>
-              <th scope="col" class="numeric">API USD</th>
-              <th scope="col" class="numeric">表示 USD</th>
-              <th scope="col">コスト基準</th>
+              <th scope="col" data-i18n="modelColumn">Model</th>
+              <th scope="col" data-i18n="agentColumn">Agent</th>
+              <th scope="col" data-i18n="effortColumn">Effort</th>
+              <th scope="col" class="numeric" id="table-score-heading" data-i18n="scoreHeader">Score</th>
+              <th scope="col" class="numeric" data-i18n="apiUsdColumn">API USD</th>
+              <th scope="col" class="numeric" data-i18n="displayUsdColumn">Display USD</th>
+              <th scope="col" data-i18n="costBasisColumn">Cost basis</th>
             </tr></thead>
             <tbody id="results-body"></tbody>
           </table>
@@ -251,24 +251,191 @@
       </section>
 
       <section class="methodology" aria-labelledby="methodology-heading">
-        <h2 id="methodology-heading">読み方と方法</h2>
+        <h2 id="methodology-heading" data-i18n="methodologyHeading">How to read this report</h2>
         <p id="benchmark-definition"></p>
-        <p>サブスク換算は API USD × 月額料金 ÷ API価値で計算します。モデル名は見た目上のslug表記だけを整えた完全一致で照合し、バージョンやファミリー間の推定はしません。換算額は測定された利用量に基づき、プラン容量を保証するものではありません。共有枠、複数モデルの利用、キャッシュ、期間途中の利用などはベンチマーク条件と異なることがあります。</p>
-        <p>スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。Terminal-Bench の費用は1試行あたりです。</p>
+        <p data-i18n="subscriptionMethodology">Subscription estimates are calculated as API USD × monthly price ÷ API value. Model names are matched exactly after normalizing only their display slugs; versions and families are not inferred. Estimates are based on measured usage and do not guarantee plan capacity. Shared quotas, use of multiple models, caching, and usage during a partial billing period may differ from benchmark conditions.</p>
+        <p data-i18n="scoreMethodology">Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench costs are per trial.</p>
         <p id="benchmark-link-row"></p>
       </section>
 
       <section class="sources" aria-labelledby="sources-heading">
-        <h2 id="sources-heading">データソース</h2>
+        <h2 id="sources-heading" data-i18n="sourcesHeading">Data sources</h2>
         <ul id="source-list" class="source-list"></ul>
       </section>
-    </main>
   </div>
   <script type="application/json" id="report-data">{{.ReportJSON}}</script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js" integrity="sha384-pPi0zxBAoDu6+JXW/C68UZLvBUUtU+7zonhif43rqj7pxsGyqyqzcian2Rj37Rss" crossorigin="anonymous"></script>
   <script>
     (() => {
       'use strict';
+      const language = new URLSearchParams(window.location.search).get('la') === 'ja' ? 'ja' : 'en';
+      const locale = language === 'ja' ? 'ja-JP' : 'en-US';
+      const timeZone = language === 'ja' ? 'Asia/Tokyo' : 'UTC';
+      const messages = {
+        en: {
+          title: 'Model comparison — score and cost',
+          titleHeading: 'Model comparison',
+          subtitle: 'Benchmark score and display cost per run',
+          skipLink: 'Skip to results',
+          updatedLabel: 'Data update information',
+          generatedAtLabel: 'Report generated:',
+          subscriptionUpdatedLabel: 'Subscription data:',
+          controlsLabel: 'Comparison settings',
+          benchmarkLabel: 'Benchmark',
+          costDisplayLegend: 'Cost display',
+          apiMode: 'API',
+          subscriptionMode: 'Subscription estimate',
+          axisScaleLegend: 'X-axis scale',
+          logScale: 'Logarithmic',
+          linearScale: 'Linear',
+          subscriptionHeading: 'Plans used for estimates',
+          subscriptionInstruction: 'When multiple plans are selected, the lowest matching plan is used for each model.',
+          analysisLabel: 'Score and cost comparison',
+          chartHeading: 'Score × cost',
+          fallbackLegend: 'Hollow circles indicate API fallback (no enabled plan match)',
+          chartFailure: 'The chart library could not be loaded. Check your network connection. The results table is still available.',
+          chartLabel: 'Scatter plot of benchmark score and display cost',
+          modelsHeading: 'Models',
+          modelHelp: 'Choose models to display',
+          resultsHeading: 'Results',
+          resultsDescription: 'Filtered by the current settings, sorted by score (highest first)',
+          tableScrollLabel: 'Results table. Scroll horizontally to view all columns',
+          modelColumn: 'Model',
+          agentColumn: 'Agent',
+          effortColumn: 'Effort',
+          scoreHeader: 'Score',
+          apiUsdColumn: 'API USD',
+          displayUsdColumn: 'Display USD',
+          costBasisColumn: 'Cost basis',
+          methodologyHeading: 'How to read this report',
+          subscriptionMethodology: 'Subscription estimates are calculated as API USD × monthly price ÷ API value. Model names are matched exactly after normalizing only their display slugs; versions and families are not inferred. Estimates are based on measured usage and do not guarantee plan capacity. Shared quotas, use of multiple models, caching, and usage during a partial billing period may differ from benchmark conditions.',
+          scoreMethodology: 'Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench costs are per trial.',
+          sourcesHeading: 'Data sources',
+          unrecorded: 'Not recorded',
+          unavailable: '—',
+          noBenchmark: (number) => `Benchmark ${number}`,
+          enabledPlans: (enabled, total) => `${enabled} / ${total} plans enabled`,
+          monthlyPrice: (amount) => `${amount}/month`,
+          factor: (value) => `Factor ×${value}`,
+          noBenchmarkData: 'No benchmark data is available.',
+          scoreDefinition: (value) => `Score: ${value}`,
+          costDefinition: (value) => `Cost: ${value}`,
+          defaultDefinition: 'Scores and costs are based on the selected benchmark data.',
+          definitionDetails: (parts) => `${parts.join('. ')}.`,
+          benchmarkLink: 'Benchmark: ',
+          sourceData: 'Source data',
+          dataSource: 'Data source',
+          sourcesUnavailable: 'No source information is available.',
+          noModelData: 'No model data is available.',
+          matchedPlanBasis: (plan, factor) => `${plan} (factor ×${factor})`,
+          apiFallback: 'API fallback',
+          apiBasis: 'API',
+          noResults: 'No matching results.',
+          agentTooltip: 'Agent',
+          scoreTooltip: 'Score',
+          displayCostAxis: 'Display cost (USD)',
+          zeroOnLog: (count) => `zero or below on log scale: ${count}`,
+          negativeOnLinear: (count) => `negative costs on linear scale: ${count}`,
+          chartCount: (count, excluded) => `${count} shown in table${excluded ? `; excluded: ${excluded}` : ''}`,
+          zeroLogNote: 'Costs at or below zero cannot be plotted on a logarithmic axis. They can be shown on a linear axis; the results table always shows all rows.',
+          negativeLinearNote: 'Negative costs cannot be shown in the chart. The results table always shows all rows.',
+          noChartBenchmark: 'There is no data to display for this benchmark.',
+          selectModel: 'Select at least one model.',
+          noPositiveCost: 'There are no positive display costs. Switch to a linear axis to show $0 USD.',
+          noChartResults: 'There are no results to display.',
+          chartDescription: (benchmark) => `${benchmark} score and display cost. Lines connect effort levels for each model and agent.`,
+          retrieved: (date) => `Retrieved: ${date}`
+        },
+        ja: {
+          title: 'モデル比較 — スコアとコスト',
+          titleHeading: 'モデル比較',
+          subtitle: 'ベンチマークスコアと1回あたりの表示コスト',
+          skipLink: '結果へ移動',
+          updatedLabel: 'データ更新情報',
+          generatedAtLabel: 'レポート作成:',
+          subscriptionUpdatedLabel: 'サブスクリプション情報:',
+          controlsLabel: '比較条件',
+          benchmarkLabel: 'ベンチマーク',
+          costDisplayLegend: 'コスト表示',
+          apiMode: 'API',
+          subscriptionMode: 'サブスク換算',
+          axisScaleLegend: '横軸スケール',
+          logScale: '対数',
+          linearScale: '線形',
+          subscriptionHeading: '換算に使うプラン',
+          subscriptionInstruction: '複数を選ぶと、モデルごとに最も低い一致プランを使います。',
+          analysisLabel: 'スコアとコストの比較',
+          chartHeading: 'スコア × コスト',
+          fallbackLegend: '中抜き丸は API fallback（有効なプラン一致なし）',
+          chartFailure: 'グラフライブラリを読み込めませんでした。ネットワーク接続を確認してください。結果表は引き続き利用できます。',
+          chartLabel: 'ベンチマークスコアと表示コストの散布図',
+          modelsHeading: 'モデル',
+          modelHelp: '表示するモデルを選択',
+          resultsHeading: '結果一覧',
+          resultsDescription: '現在の条件で絞り込み、スコアの高い順に表示',
+          tableScrollLabel: '結果一覧。横にスクロールできます',
+          modelColumn: 'モデル',
+          agentColumn: 'エージェント',
+          effortColumn: 'Effort',
+          scoreHeader: 'スコア',
+          apiUsdColumn: 'API USD',
+          displayUsdColumn: '表示 USD',
+          costBasisColumn: 'コスト基準',
+          methodologyHeading: '読み方と方法',
+          subscriptionMethodology: 'サブスク換算は API USD × 月額料金 ÷ API価値で計算します。モデル名は見た目上のslug表記だけを整えた完全一致で照合し、バージョンやファミリー間の推定はしません。換算額は測定された利用量に基づき、プラン容量を保証するものではありません。共有枠、複数モデルの利用、キャッシュ、期間途中の利用などはベンチマーク条件と異なることがあります。',
+          scoreMethodology: 'スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。Terminal-Bench の費用は1試行あたりです。',
+          sourcesHeading: 'データソース',
+          unrecorded: '未記録',
+          noBenchmark: (number) => `ベンチマーク ${number}`,
+          enabledPlans: (enabled, total) => `${enabled} / ${total} プラン有効`,
+          monthlyPrice: (amount) => `${amount}/月`,
+          factor: (value) => `係数 ×${value}`,
+          noBenchmarkData: 'ベンチマークのデータがありません。',
+          scoreDefinition: (value) => `スコア: ${value}`,
+          costDefinition: (value) => `費用: ${value}`,
+          defaultDefinition: 'スコアと費用は、選択したベンチマークのデータに基づきます。',
+          definitionDetails: (parts) => `${parts.join('。')}。`,
+          benchmarkLink: 'ベンチマーク: ',
+          sourceData: '元データ',
+          dataSource: 'データソース',
+          sourcesUnavailable: 'ソース情報がありません。',
+          noModelData: 'モデルデータがありません。',
+          matchedPlanBasis: (plan, factor) => `${plan}（係数 ×${factor}）`,
+          apiFallback: 'API fallback',
+          apiBasis: 'API',
+          noResults: '該当する結果はありません。',
+          agentTooltip: 'エージェント',
+          scoreTooltip: 'スコア',
+          displayCostAxis: '表示コスト（USD）',
+          zeroOnLog: (count) => `対数軸で 0 以下 ${count} 件`,
+          negativeOnLinear: (count) => `線形軸で負の費用 ${count} 件`,
+          chartCount: (count, excluded) => `${count} 件を表に表示${excluded ? `、${excluded}を除外` : ''}`,
+          zeroLogNote: '対数軸では0以下の費用を描画できません。線形軸では表示でき、結果表には常に全件を表示します。',
+          negativeLinearNote: '負の費用は図に表示できません。結果表には全件を表示します。',
+          noChartBenchmark: 'このベンチマークに表示できるデータがありません。',
+          selectModel: 'モデルを1つ以上選択してください。',
+          noPositiveCost: '正の表示コストがありません。線形軸に切り替えると0 USDを表示できます。',
+          noChartResults: '表示できる結果がありません。',
+          chartDescription: (benchmark) => `${benchmark}のスコアと表示コスト。モデルとエージェントごとの努力水準を線で結んでいます。`,
+          unavailable: '—',
+          retrieved: (date) => `取得: ${date}`
+        }
+      };
+      const t = (key, ...args) => {
+        const value = messages[language][key];
+        return typeof value === 'function' ? value(...args) : value;
+      };
+      function applyLanguage() {
+        document.documentElement.lang = language;
+        document.title = t('title');
+        document.querySelectorAll('[data-i18n]').forEach((element) => {
+          element.textContent = t(element.dataset.i18n);
+        });
+        document.querySelectorAll('[data-i18n-aria-label]').forEach((element) => {
+          element.setAttribute('aria-label', t(element.dataset.i18nAriaLabel));
+        });
+      }
+      applyLanguage();
       const REPORT = JSON.parse(document.getElementById('report-data').textContent);
       const $ = (id) => document.getElementById(id);
       const palette = ['#2454a6', '#b34c38', '#2f826d', '#8c5e9f', '#b27618', '#277d9a', '#b44778', '#587a42', '#6e66a8', '#a45e33', '#3b70bb', '#49727b'];
@@ -302,28 +469,40 @@
       }
       function formatDate(value) {
         const raw = text(value);
-        if (!raw) return '未記録';
+        if (!raw) return t('unrecorded');
         const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-        const date = new Date(dateOnly ? `${raw}T00:00:00` : raw);
+        const date = new Date(dateOnly ? `${raw}T00:00:00Z` : raw);
         if (Number.isNaN(date.getTime())) return raw;
-        const options = dateOnly ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' };
-        return new Intl.DateTimeFormat('ja-JP', options).format(date);
+        if (dateOnly) {
+          return new Intl.DateTimeFormat(locale, {
+            year: 'numeric', month: language === 'ja' ? '2-digit' : 'short',
+            day: language === 'ja' ? '2-digit' : 'numeric', timeZone: 'UTC'
+          }).format(date);
+        }
+        const parts = Object.fromEntries(new Intl.DateTimeFormat(locale, {
+          year: 'numeric', month: language === 'ja' ? '2-digit' : 'short',
+          day: language === 'ja' ? '2-digit' : 'numeric', hour: 'numeric', minute: '2-digit',
+          timeZone, timeZoneName: 'short'
+        }).formatToParts(date).map((part) => [part.type, part.value]));
+        return language === 'ja'
+          ? `${parts.year}/${parts.month}/${parts.day} ${parts.hour}:${parts.minute} ${parts.timeZoneName}`
+          : `${parts.month} ${parts.day}, ${parts.year}, ${parts.hour}:${parts.minute} ${parts.dayPeriod} ${parts.timeZoneName}`;
       }
       function formatUSD(value) {
         const amount = Number(value);
-        if (!Number.isFinite(amount)) return '—';
+        if (!Number.isFinite(amount)) return t('unavailable');
         return amount === 0 ? '$0.00' : usdFormatter.format(amount);
       }
       function formatAxisUSD(value) {
         const amount = Number(value);
-        if (!Number.isFinite(amount)) return '—';
+        if (!Number.isFinite(amount)) return t('unavailable');
         return amount === 0 ? '$0.00' : axisUSDFormatter.format(amount);
       }
       function formatScore(value) {
-        return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(value));
+        return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Number(value));
       }
       function formatFactor(value) {
-        return new Intl.NumberFormat('ja-JP', { maximumSignificantDigits: 4 }).format(value);
+        return new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(value);
       }
       function safeURL(value) {
         try {
@@ -354,7 +533,7 @@
         benchmarks.forEach((benchmark, index) => {
           const option = document.createElement('option');
           option.value = String(index);
-          option.textContent = benchmark.title || benchmark.id || `ベンチマーク ${index + 1}`;
+          option.textContent = benchmark.title || benchmark.id || t('noBenchmark', index + 1);
           benchmarkSelect.append(option);
         });
         benchmarkSelect.disabled = benchmarks.length === 0;
@@ -367,7 +546,7 @@
       function renderEnabledPlanCount() {
         const subscriptions = REPORT.subscriptions || [];
         const enabled = subscriptions.reduce((count, _, index) => count + (subscriptionEnabled[index] !== false ? 1 : 0), 0);
-        $('enabled-plan-count').textContent = `${enabled} / ${subscriptions.length} プラン有効`;
+        $('enabled-plan-count').textContent = t('enabledPlans', enabled, subscriptions.length);
       }
       function renderSubscriptionPanel() {
         const panel = $('subscription-panel');
@@ -396,11 +575,11 @@
           name.textContent = text(subscription.name);
           const monthly = document.createElement('span');
           monthly.className = 'sub-option-meta money';
-          monthly.textContent = `${formatUSD(subscription.monthlyUSD)}/月`;
+          monthly.textContent = t('monthlyPrice', formatUSD(subscription.monthlyUSD));
           const factor = document.createElement('span');
           factor.className = 'sub-option-meta';
           const ratio = Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD);
-          factor.textContent = `係数 ×${formatFactor(ratio)}`;
+          factor.textContent = t('factor', formatFactor(ratio));
           content.append(name, monthly, factor);
           label.append(checkbox, content);
           list.append(label);
@@ -408,20 +587,20 @@
       }
       function renderDefinitions() {
         const benchmark = activeBenchmark();
-        $('table-score-heading').textContent = benchmark && benchmark.scoreLabel ? `スコア (${benchmark.scoreLabel})` : 'スコア';
+        $('table-score-heading').textContent = benchmark && benchmark.scoreLabel ? `${t('scoreHeader')} (${benchmark.scoreLabel})` : t('scoreHeader');
         const definition = $('benchmark-definition');
         if (!benchmark) {
-          definition.textContent = 'ベンチマークのデータがありません。';
+          definition.textContent = t('noBenchmarkData');
         } else {
           const details = [];
-          if (benchmark.scoreLabel) details.push(`スコア: ${benchmark.scoreLabel}`);
-          if (benchmark.costNote) details.push(`費用: ${benchmark.costNote}`);
-          definition.textContent = details.length ? details.join('。') + '。' : 'スコアと費用は、選択したベンチマークのデータに基づきます。';
+          if (benchmark.scoreLabel) details.push(t('scoreDefinition', benchmark.scoreLabel));
+          if (benchmark.costNote) details.push(t('costDefinition', benchmark.costNote));
+          definition.textContent = details.length ? t('definitionDetails', details) : t('defaultDefinition');
         }
         const linkRow = $('benchmark-link-row');
         linkRow.replaceChildren();
         if (benchmark && safeURL(benchmark.url)) {
-          linkRow.append(document.createTextNode('ベンチマーク: '), anchor(benchmark.title || benchmark.id || '元データ', safeURL(benchmark.url)));
+          linkRow.append(document.createTextNode(t('benchmarkLink')), anchor(benchmark.title || benchmark.id || t('sourceData'), safeURL(benchmark.url)));
         }
       }
       function renderSources() {
@@ -431,18 +610,18 @@
           const li = document.createElement('li');
           const url = safeURL(source.url);
           if (url) li.append(anchor(source.name || source.file || url, url));
-          else li.append(document.createTextNode(source.name || source.file || 'データソース'));
+          else li.append(document.createTextNode(source.name || source.file || t('dataSource')));
           if (source.fetchedAt) {
             const fetched = document.createElement('span');
             fetched.className = 'source-date';
-            fetched.textContent = `取得: ${formatDate(source.fetchedAt)}`;
+            fetched.textContent = t('retrieved', formatDate(source.fetchedAt));
             li.append(fetched);
           }
           list.append(li);
         });
         if (!list.children.length) {
           const li = document.createElement('li');
-          li.textContent = 'ソース情報がありません。';
+          li.textContent = t('sourcesUnavailable');
           list.append(li);
         }
       }
@@ -462,7 +641,7 @@
         if (!benchmark || !benchmark.points || !benchmark.points.length) {
           const empty = document.createElement('p');
           empty.className = 'muted';
-          empty.textContent = 'モデルデータがありません。';
+          empty.textContent = t('noModelData');
           list.append(empty);
           return;
         }
@@ -521,8 +700,8 @@
         });
       }
       function basisText(row) {
-        if (row.offer) return `${text(row.offer.plan)}（係数 ×${formatFactor(row.factor)}）`;
-        return row.fallback ? 'API fallback' : 'API';
+        if (row.offer) return t('matchedPlanBasis', text(row.offer.plan), formatFactor(row.factor));
+        return row.fallback ? t('apiFallback') : t('apiBasis');
       }
       function renderTable() {
         const body = $('results-body');
@@ -533,7 +712,7 @@
           const td = document.createElement('td');
           td.colSpan = 7;
           td.className = 'muted';
-          td.textContent = '該当する結果はありません。';
+          td.textContent = t('noResults');
           tr.append(td);
           body.append(tr);
           return;
@@ -558,26 +737,26 @@
         const point = row.point;
         const basis = basisText(row);
         const line = (label, value) => `<div class="tip-row"><span class="tip-label">${escapeHTML(label)}</span><span>${escapeHTML(value)}</span></div>`;
-        return `<div class="tip-title">${escapeHTML(point.model)}</div>${line('エージェント', point.agent)}${line('Effort', point.effort)}${line('スコア', formatScore(point.score))}${line('API USD', formatUSD(point.apiCost))}${line('表示 USD', formatUSD(row.cost))}${line('コスト基準', basis)}`;
+        return `<div class="tip-title">${escapeHTML(point.model)}</div>${line(t('agentTooltip'), point.agent)}${line(t('effortColumn'), point.effort)}${line(t('scoreTooltip'), formatScore(point.score))}${line(t('apiUsdColumn'), formatUSD(point.apiCost))}${line(t('displayUsdColumn'), formatUSD(row.cost))}${line(t('costBasisColumn'), basis)}`;
       }
       function renderChart() {
         const benchmark = activeBenchmark();
         const visibleRows = rowsForBenchmark();
         const chartableRows = visibleRows.filter((row) => axisScale === 'log' ? row.cost > 0 : row.cost >= 0);
         const excluded = visibleRows.length - chartableRows.length;
-        const exclusionLabel = axisScale === 'log' ? `対数軸で 0 以下 ${excluded} 件` : `線形軸で負の費用 ${excluded} 件`;
-        $('chart-count').textContent = `${visibleRows.length} 件を表に表示${excluded ? `、${exclusionLabel}を除外` : ''}`;
-        $('chart-note').textContent = excluded ? axisScale === 'log' ? '対数軸では0以下の費用を描画できません。線形軸では表示でき、結果表には常に全件を表示します。' : '負の費用は図に表示できません。結果表には全件を表示します。' : '';
+        const exclusionLabel = axisScale === 'log' ? t('zeroOnLog', excluded) : t('negativeOnLinear', excluded);
+        $('chart-count').textContent = t('chartCount', visibleRows.length, excluded ? exclusionLabel : '');
+        $('chart-note').textContent = excluded ? axisScale === 'log' ? t('zeroLogNote') : t('negativeLinearNote') : '';
         const empty = $('chart-empty');
         empty.hidden = chartableRows.length > 0;
         if (!benchmark || !benchmark.points || !benchmark.points.length) {
-          empty.textContent = 'このベンチマークに表示できるデータがありません。';
+          empty.textContent = t('noChartBenchmark');
         } else if (!visibleRows.length) {
-          empty.textContent = 'モデルを1つ以上選択してください。';
+          empty.textContent = t('selectModel');
         } else if (!chartableRows.length && axisScale === 'log') {
-          empty.textContent = '正の表示コストがありません。線形軸に切り替えると0 USDを表示できます。';
+          empty.textContent = t('noPositiveCost');
         } else {
-          empty.textContent = '表示できる結果がありません。';
+          empty.textContent = t('noChartResults');
         }
         if (!window.echarts) {
           $('chart-failure').hidden = false;
@@ -635,7 +814,7 @@
         });
         chart.setOption({
           animation: false,
-          aria: { enabled: true, description: `${benchmark.title || benchmark.id || 'ベンチマーク'}のスコアと表示コスト。モデルとエージェントごとの努力水準を線で結んでいます。` },
+          aria: { enabled: true, description: t('chartDescription', benchmark.title || benchmark.id || t('benchmarkLabel')) },
           grid: { left: narrowPlot ? 44 : 72, right: narrowPlot ? 12 : 28, top: narrowPlot ? 29 : 37, bottom: narrowPlot ? 54 : 67, containLabel: true },
           tooltip: {
             trigger: 'item',
@@ -653,7 +832,7 @@
           xAxis: {
             type: axisScale === 'log' ? 'log' : 'value',
             min: axisScale === 'linear' ? 0 : undefined,
-            name: '表示コスト（USD）',
+            name: t('displayCostAxis'),
             nameLocation: 'middle',
             nameGap: narrowPlot ? 30 : 42,
             axisLabel: { color: '#556783', formatter: formatAxisUSD, hideOverlap: true, fontSize: narrowPlot ? 10 : 12 },
@@ -662,7 +841,7 @@
           },
           yAxis: {
             type: 'value',
-            name: benchmark.scoreLabel || 'スコア',
+            name: benchmark.scoreLabel || t('scoreHeader'),
             nameLocation: 'middle',
             nameGap: narrowPlot ? 34 : 52,
             axisLabel: { color: '#556783', hideOverlap: true, fontSize: narrowPlot ? 10 : 12 },
