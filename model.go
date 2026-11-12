@@ -6,13 +6,13 @@ type point struct {
 	Model string `json:"model"`
 	Agent string `json:"agent"`
 	// ModelKey is canonicalModel(Model); the page shares model selection across benchmarks by it.
-	ModelKey string  `json:"modelKey"`
-	Effort   string  `json:"effort"`
-	Score    float64 `json:"score"`
-	APICost  float64 `json:"apiCost"`
-	Tokens   float64 `json:"tokens,omitempty"`
-	Color    string  `json:"color,omitempty"`
-	Offers   []offer `json:"offers"`
+	ModelKey string   `json:"modelKey"`
+	Effort   string   `json:"effort"`
+	Score    float64  `json:"score"`
+	APICost  float64  `json:"apiCost"`
+	Tokens   *float64 `json:"tokens,omitempty"`
+	Color    string   `json:"color,omitempty"`
+	Offers   []offer  `json:"offers"`
 }
 
 type offer struct {
@@ -64,12 +64,14 @@ type fetchOptions struct {
 	DataDir     string
 	TerminalURL string
 	FrontierURL string
+	ScienceURL  string
 	PricingURL  string
 }
 
 const (
 	defaultTerminalURL = "https://hub.harborframework.com/datasets/terminal-bench/terminal-bench/5?tab=leaderboard&leaderboard=4-1-0"
 	defaultFrontierURL = "https://cognition.com/data/frontier-code-2.0/data.json"
+	defaultScienceURL  = "https://www.terminal-bench-science.ai/api/leaderboard?package=terminal-bench-science%2Fterminal-bench-science&name=v0-1-eval"
 	defaultPricingURL  = "https://raw.githubusercontent.com/Fei2411/real-api-pricing/main/derived/points.json"
 )
 
