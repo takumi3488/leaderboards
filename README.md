@@ -1,7 +1,6 @@
 # leaderboards
 
-Terminal-Bench / FrontierCode のスコアと試行平均料金を比較する Go CLI。
-サブスクリプションの利用実績から推計した実質価格にも切り替えられる。
+Terminal-Bench / FrontierCode のスコアと1回あたりの API・サブスク換算料金を比較する Go CLI。
 
 公開版: https://takumi3488.github.io/leaderboards/
 
@@ -15,7 +14,7 @@ go run . build
 open leaderboard.html
 ```
 
-- `fetch`: 原本と取得 URL・日時を `data/` に保存。
+- `fetch`: 原本と取得 URL・日時を `data/` に保存。各原本を検証してから保存する。
 - `build`: 保存済みファイルだけから単一 HTML を生成。データ取得の通信なし。
 - HTML のデータ・CSS・操作コードは埋め込み。グラフ描画の ECharts のみ CDN を利用するため、閲覧時に通信が必要。
 - 出力先や取得 URL は変更可能。`go run . fetch -h` / `go run . build -h` 参照。
@@ -36,23 +35,19 @@ deploy せず、前回公開版を維持する。原本はリポジトリにコ�
 ## 表示と料金計算
 
 - Terminal-Bench / FrontierCode、API / サブスク、対数 / 線形軸を切り替え。
-- 画面は英語が既定。URL に `?la=ja` を付けると日本語表示。日時は英語で UTC、日本語で JST（Asia/Tokyo）表示し、日付のみの値は両言語で同じ日付を表示。
-- サブスクごとに ON/OFF。初期状態は全 ON。同じモデルに対応する有効なプランのうち、実質価格が最安のものを採用。
-- 「換算に使うプラン」を開いて設定変更。「モデル」で表示する曲線と一覧表を絞り込める。
-- サブスク換算では、有効プランに一致しないモデルは初期状態で非選択。手動で選べば API fallback として表示。
-- モデルの手動選択はベンチマーク切替後も保持。`Opus 5.5` / `Claude Opus 5.5` のようにプラン照合と同じ正規化で同一となるモデルは共通扱い。
-- プラン対応はモデル名の完全一致。大文字小文字・区切り文字・プロバイダ接頭辞と Claude の表示名のみ正規化。別バージョンや `preview` 等の別名には拡張しない。
-- 有効プランに完全一致の記載がなければ API 料金に fallback。全プラン OFF の場合も同様。
+- 画面は英語が既定。URL に `?la=ja` を付けると日本語表示。日時は英語で UTC、日本語で JST 表示。
+- プランは料金の安い順で表示し、各プランを個別に ON/OFF。同じモデルに有効なプランが複数あれば換算額が最安のものを採用する。初期状態は全 ON。
+- サブスク換算で有効プランに一致しないモデルは初期状態で非選択。手動選択時は API 料金で表示。
+- モデル照合は正規化後の完全一致。大文字小文字、区切り文字、プロバイダ接頭辞と Claude の表示名だけを正規化し、別バージョン等は推定しない。
 
 ```text
-サブスク実質価格 = 試行平均API料金 × 月額料金 / 月平均API換算価値
+Terminal-Bench: トークン数 / rollout × プラン実質 $/MTok
+FrontierCode: API rollout 料金 × プラン実質 $/MTok ÷ モデル API $/MTok
 ```
 
-gist は概要表から料金と API 換算価値を、各プランのモデル表から対応モデルを抽出する。
-説明文と表が異なる場合は表を採用し、複数モデルで共有されるプラン全体の比率を使う。
-CodingPlans は `Plans ranked by value` 表から料金・API 換算価値・モデルを抽出する。
-各 CodingPlans プランは、サイトがその行に表示する単一モデルにだけ適用する。
-別モデルの API 価格で換算した行（`(assumed)` 表記）は除外する。
+Terminal-Bench のトークン数は `total_tokens / n_trials`。FrontierCode は出力トークンだけを報告するため API 料金比で換算する。プランの `real_usd_per_mtok` は各行の `workload`（`standard` / `anthropic` / `low-cache` / `measured` raw samples）に従い、一律の混合率は適用しない。`metered` 行は「API list price (metered row)」で、実使用量の実測値ではない。API 参照価格は metered 行、`api_prices.go` の公式価格、非 Anthropic 行の `list_blended_usd_per_mtok` の順で補う。Claude の list blend は cache-write rate を含まないためフォールバックに使わない。手動 API 価格は公式価格の短コンテキスト tier を 97% cache read / 2.5% fresh input / 0.5% output で換算し、Claude fresh input は5分 cache write 価格を使う。
+
+実質価格は元データに基づく推計で、プラン容量や今後の提供を保証しない。共有枠、モデル構成、利用期間により実際の値は異なる。
 
 - Terminal-Bench: `total_cost_usd / n_trials`。スコアは `accuracy`。
 - FrontierCode: `cost` は rollout 平均 USD。スコアは `new_score × 100`。
@@ -60,29 +55,25 @@ CodingPlans は `Plans ranked by value` 表から料金・API 換算価値・モ
 - ベンチマーク間のスコアは直接比較しない。モデル・ハーネス単位で effort を線で接続する。
 - 公開データが料金 0 を報告する場合、0 のまま保持。対数軸では描画できないため件数を注記し、表と線形軸には残す。
 
-実質価格は個人の利用実績に基づく推計。定額で同じ試行数を購入できる保証ではない。
-共有クォータ、利用モデル構成、キャッシュ、未完了の測定期間、ハーネスやプランの
-利用条件によって結果が変わる。モデル表への記載も、現在の提供・アクセス可否の保証ではない。
-
 ## 原本とオフライン検証
 
 ```sh
 go test ./...
 ```
 
-抽出・料金計算のテストは `testdata/` の固定原本を利用。`fetch` や外部サービスへの
+抽出・料金計算のテストは `testdata/` の小さな固定 fixture を利用する。`fetch` や外部サービスへの
 接続なしで実行できる。取得済み `data/` があれば HTML 生成もオフライン実行可能。
 
 取得先:
 
 - [Terminal-Bench 4.1](https://hub.harborframework.com/datasets/terminal-bench/terminal-bench/5?tab=leaderboard&leaderboard=4-1-0):
   ページ HTML から leaderboard UUID、JS chunk から `fetchLeaderboardWithRows` の
-  action ID を動的に発見して取得。UUID・action ID の固定値には依存しない。
+  action ID を動的に発見して取得。
 - [FrontierCode](https://cognition.com/frontiercode):
   [公開 JSON](https://cognition.com/data/frontier-code-2.0/data.json)。
-- [AI subscription value summary](https://gist.githubusercontent.com/ngardiner/d577b3c9f3ca283937879bae8460102b/raw/ai_subscription_value_summary.md):
-  revision なしの最新 Markdown。固定 revision を使う場合は `-subscription-url` 指定。
-- [CodingPlans](https://codingplans.app/): `Plans ranked by value` の表を取得。URL の変更は `-codingplans-url` で指定。
+- [real-api-pricing](https://github.com/Fei2411/real-api-pricing) ([MIT](https://github.com/Fei2411/real-api-pricing/blob/main/LICENSE)):
+  [`derived/points.json`](https://raw.githubusercontent.com/Fei2411/real-api-pricing/main/derived/points.json)。変更時は `-pricing-url` を指定。
+- 公式 API 価格（2026-11-12 確認）: [OpenAI](https://developers.openai.com/api/docs/pricing)、[Anthropic](https://platform.claude.com/docs/en/about-claude/pricing)。ソースにないモデルの価格と workload 換算は `api_prices.go` を更新する。
 
 `data/` の保存内容:
 
@@ -92,8 +83,7 @@ go test ./...
 | `terminal-bench-action.js` | 発見した server action を含む JS |
 | `terminal-bench.rsc` | server action 応答原本。JSON を抽出して読み込む |
 | `frontiercode.json` | FrontierCode 公開 JSON 原本 |
-| `ai_subscription_value_summary.md` | gist の Markdown 原文 |
-| `codingplans.html` | CodingPlans ページ原本 |
+| `real-api-pricing.json` | real-api-pricing 公開 JSON 原本 |
 | `sources.json` | 取得 URL・ファイル名・取得日時 |
 
 Terminal-Bench の server action は公開ページの内部インターフェース。

@@ -173,7 +173,7 @@
       </div>
       <div class="updated" aria-label="Data update information" data-i18n-aria-label="updatedLabel">
         <p><span data-i18n="generatedAtLabel">Report generated:</span> <time id="generated-at"></time></p>
-        <p><span data-i18n="subscriptionUpdatedLabel">Subscription data:</span> <time id="subscription-updated"></time></p>
+        <p><span data-i18n="subscriptionUpdatedLabel">Pricing data:</span> <time id="subscription-updated"></time></p>
       </div>
     </header>
 
@@ -206,7 +206,7 @@
             <span id="enabled-plan-count" class="sub-count" aria-live="polite"></span>
           </span>
         </summary>
-        <p class="sub-instruction" data-i18n="subscriptionInstruction">When multiple plans are selected, the lowest matching plan is used for each model.</p>
+        <p class="sub-instruction" data-i18n="subscriptionInstruction">Toggle plans individually; the lowest enabled matching plan is used for each model.</p>
         <div id="subscription-list" class="sub-list"></div>
       </details>
 
@@ -253,7 +253,7 @@
       <section class="methodology" aria-labelledby="methodology-heading">
         <h2 id="methodology-heading" data-i18n="methodologyHeading">How to read this report</h2>
         <p id="benchmark-definition"></p>
-        <p data-i18n="subscriptionMethodology">Subscription estimates are calculated as API USD × monthly price ÷ API value. Model names are matched exactly after normalizing only their display slugs; versions and families are not inferred. Estimates are based on measured usage and do not guarantee plan capacity. Shared quotas, use of multiple models, caching, and usage during a partial billing period may differ from benchmark conditions.</p>
+        <p data-i18n="subscriptionMethodology">Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row's workload (standard, anthropic, low-cache, or measured raw samples); metered rows are "API list price (metered row)", not API usage measurements. Hand-maintained API prices use official price lists.</p>
         <p data-i18n="scoreMethodology">Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench costs are per trial.</p>
         <p id="benchmark-link-row"></p>
       </section>
@@ -277,7 +277,7 @@
           skipLink: 'Skip to results',
           updatedLabel: 'Data update information',
           generatedAtLabel: 'Report generated:',
-          subscriptionUpdatedLabel: 'Subscription data:',
+          subscriptionUpdatedLabel: 'Pricing data:',
           controlsLabel: 'Comparison settings',
           benchmarkLabel: 'Benchmark',
           costDisplayLegend: 'Cost display',
@@ -287,7 +287,7 @@
           logScale: 'Logarithmic',
           linearScale: 'Linear',
           subscriptionHeading: 'Plans used for estimates',
-          subscriptionInstruction: 'When multiple plans are selected, the lowest matching plan is used for each model.',
+          subscriptionInstruction: 'Toggle plans individually; the lowest enabled matching plan is used for each model.',
           analysisLabel: 'Score and cost comparison',
           chartHeading: 'Score × cost',
           fallbackLegend: 'Hollow circles indicate API fallback (no enabled plan match)',
@@ -306,15 +306,14 @@
           displayUsdColumn: 'Display USD',
           costBasisColumn: 'Cost basis',
           methodologyHeading: 'How to read this report',
-          subscriptionMethodology: 'Subscription estimates are calculated as API USD × monthly price ÷ API value. Model names are matched exactly after normalizing only their display slugs; versions and families are not inferred. Estimates are based on measured usage and do not guarantee plan capacity. Shared quotas, use of multiple models, caching, and usage during a partial billing period may differ from benchmark conditions.',
+          subscriptionMethodology: 'Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row’s workload (standard, anthropic, low-cache, or measured raw samples); metered rows are “API list price (metered row)”, not API usage measurements. Hand-maintained API prices use official price lists.',
           scoreMethodology: 'Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench costs are per trial.',
           sourcesHeading: 'Data sources',
           unrecorded: 'Not recorded',
           unavailable: '—',
           noBenchmark: (number) => `Benchmark ${number}`,
           enabledPlans: (enabled, total) => `${enabled} / ${total} plans enabled`,
-          monthlyPrice: (amount) => `${amount}/month`,
-          factor: (value) => `Factor ×${value}`,
+          monthlyPrice: (amount) => `${amount}/mo`,
           noBenchmarkData: 'No benchmark data is available.',
           scoreDefinition: (value) => `Score: ${value}`,
           costDefinition: (value) => `Cost: ${value}`,
@@ -325,7 +324,7 @@
           dataSource: 'Data source',
           sourcesUnavailable: 'No source information is available.',
           noModelData: 'No model data is available.',
-          matchedPlanBasis: (plan, factor) => `${plan} (factor ×${factor})`,
+          matchedPlanBasis: (plan, rate, confidence) => `${plan} ($${rate}/MTok, ${confidence})`,
           apiFallback: 'API fallback',
           noResults: 'No matching results.',
           displayCostAxis: 'Display cost (USD)',
@@ -348,7 +347,7 @@
           skipLink: '結果へ移動',
           updatedLabel: 'データ更新情報',
           generatedAtLabel: 'レポート作成:',
-          subscriptionUpdatedLabel: 'サブスクリプション情報:',
+          subscriptionUpdatedLabel: '価格データ:',
           controlsLabel: '比較条件',
           benchmarkLabel: 'ベンチマーク',
           costDisplayLegend: 'コスト表示',
@@ -358,7 +357,7 @@
           logScale: '対数',
           linearScale: '線形',
           subscriptionHeading: '換算に使うプラン',
-          subscriptionInstruction: '複数を選ぶと、モデルごとに最も低い一致プランを使います。',
+          subscriptionInstruction: 'プランを個別に ON/OFF できます。有効な一致プランのうち最安値をモデルごとに使います。',
           analysisLabel: 'スコアとコストの比較',
           chartHeading: 'スコア × コスト',
           fallbackLegend: '中抜き丸は API fallback（有効なプラン一致なし）',
@@ -377,14 +376,13 @@
           displayUsdColumn: '表示 USD',
           costBasisColumn: 'コスト基準',
           methodologyHeading: '読み方と方法',
-          subscriptionMethodology: 'サブスク換算は API USD × 月額料金 ÷ API価値で計算します。モデル名は見た目上のslug表記だけを整えた完全一致で照合し、バージョンやファミリー間の推定はしません。換算額は測定された利用量に基づき、プラン容量を保証するものではありません。共有枠、複数モデルの利用、キャッシュ、期間途中の利用などはベンチマーク条件と異なることがあります。',
+          subscriptionMethodology: 'サブスク換算は、Terminal-Bench では rollout あたりのトークン数 × プラン実質 $/MTok、出力トークンのみの FrontierCode では API 費用 × プラン実質 $/MTok ÷ モデル API $/MTok です。real-api-pricing のプラン価格は各行の workload（standard / anthropic / low-cache / measured raw samples）に従います。metered 行は「API list price (metered row)」で、API 使用量の実測値ではありません。手動価格は公式価格表に基づきます。',
           scoreMethodology: 'スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。Terminal-Bench の費用は1試行あたりです。',
           sourcesHeading: 'データソース',
           unrecorded: '未記録',
           noBenchmark: (number) => `ベンチマーク ${number}`,
           enabledPlans: (enabled, total) => `${enabled} / ${total} プラン有効`,
           monthlyPrice: (amount) => `${amount}/月`,
-          factor: (value) => `係数 ×${value}`,
           noBenchmarkData: 'ベンチマークのデータがありません。',
           scoreDefinition: (value) => `スコア: ${value}`,
           costDefinition: (value) => `費用: ${value}`,
@@ -395,7 +393,7 @@
           dataSource: 'データソース',
           sourcesUnavailable: 'ソース情報がありません。',
           noModelData: 'モデルデータがありません。',
-          matchedPlanBasis: (plan, factor) => `${plan}（係数 ×${factor}）`,
+          matchedPlanBasis: (plan, rate, confidence) => `${plan}（$${rate}/MTok、信頼度 ${confidence}）`,
           apiFallback: 'API fallback',
           noResults: '該当する結果はありません。',
           displayCostAxis: '表示コスト（USD）',
@@ -443,7 +441,7 @@
       let axisScale = 'log';
       let chart = null;
       const modelEnabled = new Map(); // explicit user choices only; see isModelEnabled
-      const subscriptionEnabled = (REPORT.subscriptions || []).map(() => true);
+      const subscriptionEnabled = new Map((REPORT.subscriptions || []).map((subscription) => [subscription.name, true]));
       const benchmarkSelect = $('benchmark-select');
 
       function text(value) { return value == null ? '' : String(value); }
@@ -497,7 +495,7 @@
       function formatScore(value) {
         return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Number(value));
       }
-      function formatFactor(value) {
+      function formatRate(value) {
         return new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(value);
       }
       function safeURL(value) {
@@ -541,7 +539,8 @@
       }
       function renderEnabledPlanCount() {
         const subscriptions = REPORT.subscriptions || [];
-        const enabled = subscriptions.reduce((count, _, index) => count + (subscriptionEnabled[index] !== false ? 1 : 0), 0);
+        const enabled = subscriptions.reduce((count, subscription) =>
+          count + (subscriptionEnabled.get(subscription.name) !== false ? 1 : 0), 0);
         $('enabled-plan-count').textContent = t('enabledPlans', enabled, subscriptions.length);
       }
       function renderSubscriptionPanel() {
@@ -551,16 +550,15 @@
         renderEnabledPlanCount();
         const list = $('subscription-list');
         list.replaceChildren();
-        const subscriptions = REPORT.subscriptions || [];
-        subscriptions.forEach((subscription, index) => {
+        (REPORT.subscriptions || []).forEach((subscription) => {
           const label = document.createElement('label');
           label.className = 'sub-option';
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          checkbox.checked = subscriptionEnabled[index] !== false;
+          checkbox.checked = subscriptionEnabled.get(subscription.name) !== false;
           checkbox.addEventListener('change', () => {
-            subscriptionEnabled[index] = checkbox.checked;
-            renderEnabledPlanCount();
+            subscriptionEnabled.set(subscription.name, checkbox.checked);
+            renderSubscriptionPanel();
             renderModelLegend();
             renderViews();
           });
@@ -572,11 +570,7 @@
           const monthly = document.createElement('span');
           monthly.className = 'sub-option-meta money';
           monthly.textContent = t('monthlyPrice', formatUSD(subscription.monthlyUSD));
-          const factor = document.createElement('span');
-          factor.className = 'sub-option-meta';
-          const ratio = Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD);
-          factor.textContent = t('factor', formatFactor(ratio));
-          content.append(name, monthly, factor);
+          content.append(name, monthly);
           label.append(checkbox, content);
           list.append(label);
         });
@@ -673,12 +667,7 @@
       }
       function chosenOffer(point) {
         if (mode !== 'subscription') return null;
-        const enabledPlans = new Set((REPORT.subscriptions || []).filter((_, index) => subscriptionEnabled[index] !== false).map((subscription) => subscription.name));
-        return (point.offers || []).find((offer) => enabledPlans.has(offer.plan)) || null;
-      }
-      function factorFor(offer) {
-        const subscription = (REPORT.subscriptions || []).find((candidate) => candidate.name === offer.plan);
-        return Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD);
+        return (point.offers || []).find((offer) => subscriptionEnabled.get(offer.plan) !== false) || null;
       }
       function rowsForBenchmark() {
         const benchmark = activeBenchmark();
@@ -690,13 +679,12 @@
             point,
             cost: matched ? Number(offer.cost) : Number(point.apiCost),
             offer: matched ? offer : null,
-            factor: matched ? factorFor(offer) : null,
             fallback: mode === 'subscription' && !matched
           };
         });
       }
       function basisText(row) {
-        if (row.offer) return t('matchedPlanBasis', text(row.offer.plan), formatFactor(row.factor));
+        if (row.offer) return t('matchedPlanBasis', text(row.offer.plan), formatRate(row.offer.usdPerMTok), text(row.offer.confidence));
         return row.fallback ? t('apiFallback') : t('apiMode');
       }
       function renderTable() {

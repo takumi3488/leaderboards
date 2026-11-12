@@ -69,12 +69,12 @@ func TestTerminalBenchmarkRejectsMissingAndZeroNumbers(t *testing.T) {
 func TestTerminalBenchmarkSkipsNonDisplayRowsAndAllowsZeroCost(t *testing.T) {
 	response := []byte(`1:{"title":"Sample","rows":[` +
 		`{"id":"hidden","status":"pending","metrics":{}},` +
-		`{"id":"free","status":"display","metadata":{"model_display":{"label":"Model"},"agent_display":{"label":"Agent"},"reasoning_effort":"low"},"metrics":{"accuracy":12.5,"accuracy_ci95_half_width":2,"total_cost_usd":0,"n_trials":1}}]}`)
+		`{"id":"free","status":"display","metadata":{"model_display":{"label":"Model"},"agent_display":{"label":"Agent"},"reasoning_effort":"low"},"metrics":{"accuracy":12.5,"accuracy_ci95_half_width":2,"total_cost_usd":0,"total_tokens":1000,"n_trials":2}}]}`)
 	parsed, err := parseTerminalBenchmark(response, "https://example.test/terminal")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(parsed.Points) != 1 || parsed.Points[0].ID != "free" || parsed.Points[0].Score != 12.5 || parsed.Points[0].APICost != 0 {
+	if len(parsed.Points) != 1 || parsed.Points[0].ID != "free" || parsed.Points[0].Score != 12.5 || parsed.Points[0].APICost != 0 || parsed.Points[0].Tokens != 500 {
 		t.Fatalf("unexpected parsed visible row: %+v", parsed.Points)
 	}
 }
@@ -215,59 +215,44 @@ func assertNear(t *testing.T, got, want, tolerance float64) {
 		t.Fatalf("got %g, want %g (tolerance %g)", got, want, tolerance)
 	}
 }
-
-func TestParseCodingPlansSnapshot(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("testdata", codingPlansHTMLFile))
+func TestFetchRejectsUnusablePricingBeforeWritingFiles(t *testing.T) {
+	terminalResponse, err := os.ReadFile(filepath.Join("testdata", terminalRSCFile))
 	if err != nil {
 		t.Fatal(err)
 	}
-	plans, err := parseCodingPlans(data)
+	frontierResponse, err := os.ReadFile(filepath.Join("testdata", frontierJSONFile))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plans) != 20 {
-		t.Fatalf("got %d usable plans, want 20 rows priced at their own model", len(plans))
-	}
-	var claude *subscription
-	for i := range plans {
-		switch plans[i].Name {
-		case "Claude Max 20x · CodingPlans":
-			claude = &plans[i]
-		case "Google AI Ultra · CodingPlans", "Google AI Pro · CodingPlans", "Zed Pro · CodingPlans":
-			t.Errorf("parsed %s, whose API value assumes another model's price", plans[i].Name)
-		}
-	}
-	if claude == nil {
-		t.Fatal("Claude Max 20x was not parsed")
-	}
-	if claude.MonthlyUSD != 200 || claude.APIValueUSD != 5000 || !equalStrings(claude.Models, []string{"Claude Opus 5.5"}) {
-		t.Errorf("Claude Max 20x = %+v, want $200 / $5000 for Claude Opus 5.5", *claude)
-	}
-}
-
-func TestParseCodingPlansRejectsMissingTableAndInvalidMoney(t *testing.T) {
-	cases := []struct {
-		name string
-		data string
-		want string
-	}{
-		{"missing table", "<html><body>No plans</body></html>", "no Plans ranked by value table"},
-		{
-			"invalid price",
-			`<h2>Plans ranked by value</h2><table><tr><th scope="row"><span class="block font-medium">Broken plan</span><span class="block text-[11px]">Claude Opus 5.5</span></th><td>free</td><td>$100</td></tr></table>`,
-			`row "Broken plan" price "free"`,
-		},
-		{
-			"invalid API value",
-			`<h2>Plans ranked by value</h2><table><tr><th scope="row"><span class="block font-medium">Broken plan</span><span class="block text-[11px]">Claude Opus 5.5</span></th><td>$20</td><td>$0</td></tr></table>`,
-			`row "Broken plan" API value "$0"`,
-		},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			if _, err := parseCodingPlans([]byte(test.data)); err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("got error %v, want text %q", err, test.want)
+	page := []byte(`<script>self.__next_f.push([1,"{\"leaderboards\":[{\"id\":\"leaderboard-uuid\",\"name\":\"4-1-0\",\"title\":\"Board\"}]}"])</script><script src="/action.js"></script>`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/terminal":
+			if r.Method == http.MethodPost {
+				_, _ = w.Write(terminalResponse)
+			} else {
+				_, _ = w.Write(page)
 			}
-		})
+		case "/action.js":
+			_, _ = w.Write([]byte(`createServerReference("40775de86105e3d601d31c1040d2235ad70cc4a593",callServer,void 0,findSourceMapURL,"fetchLeaderboardWithRows")`))
+		case "/frontier":
+			_, _ = w.Write(frontierResponse)
+		case "/pricing":
+			_, _ = w.Write([]byte(`{"generatedAt":"2026-11-10","points":[]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	dataDir := filepath.Join(t.TempDir(), "data")
+	err = fetchSources(context.Background(), fetchOptions{
+		DataDir: dataDir, TerminalURL: server.URL + "/terminal?leaderboard=4-1-0",
+		FrontierURL: server.URL + "/frontier", PricingURL: server.URL + "/pricing",
+	})
+	if err == nil || !strings.Contains(err.Error(), "no usable subscription") {
+		t.Fatalf("got error %v, want unusable pricing validation error", err)
+	}
+	if _, err := os.Stat(dataDir); !os.IsNotExist(err) {
+		t.Fatalf("fetch wrote into data directory before pricing validation: stat error %v", err)
 	}
 }
