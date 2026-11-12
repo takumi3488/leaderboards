@@ -279,7 +279,7 @@
       let narrowPlot = window.matchMedia('(max-width: 600px)').matches;
       let axisScale = 'log';
       let chart = null;
-      const modelEnabled = new Map();
+      const modelEnabled = new Map(); // explicit user choices only; see isModelEnabled
       const subscriptionEnabled = (REPORT.subscriptions || []).map(() => true);
       const benchmarkSelect = $('benchmark-select');
 
@@ -386,6 +386,7 @@
           checkbox.addEventListener('change', () => {
             subscriptionEnabled[index] = checkbox.checked;
             renderEnabledPlanCount();
+            renderModelLegend();
             renderViews();
           });
           const content = document.createElement('span');
@@ -468,12 +469,11 @@
         const models = [...new Set(benchmark.points.map((point) => text(point.model)))].sort((a, b) => a.localeCompare(b));
         models.forEach((model) => {
           const key = `${benchmark.id}\u0000${model}`;
-          if (!modelEnabled.has(key)) modelEnabled.set(key, true);
           const label = document.createElement('label');
           label.className = 'model-option';
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          checkbox.checked = modelEnabled.get(key) !== false;
+          checkbox.checked = isModelEnabled(benchmark, model);
           checkbox.addEventListener('change', () => {
             modelEnabled.set(key, checkbox.checked);
             renderViews();
@@ -487,6 +487,12 @@
           list.append(label);
         });
       }
+      // In subscription mode, models without an enabled plan start unchecked.
+      function isModelEnabled(benchmark, model) {
+        const choice = modelEnabled.get(`${benchmark.id}\u0000${model}`);
+        if (choice !== undefined) return choice;
+        return mode !== 'subscription' || benchmark.points.some((point) => text(point.model) === model && chosenOffer(point) !== null);
+      }
       function chosenOffer(point) {
         if (mode !== 'subscription') return null;
         const enabledPlans = new Set((REPORT.subscriptions || []).filter((_, index) => subscriptionEnabled[index] !== false).map((subscription) => subscription.name));
@@ -499,7 +505,7 @@
       function rowsForBenchmark() {
         const benchmark = activeBenchmark();
         if (!benchmark || !benchmark.points) return [];
-        return benchmark.points.filter((point) => modelEnabled.get(`${benchmark.id}\u0000${text(point.model)}`) !== false).map((point) => {
+        return benchmark.points.filter((point) => isModelEnabled(benchmark, text(point.model))).map((point) => {
           const offer = chosenOffer(point);
           const matched = offer !== null;
           return {
@@ -677,6 +683,7 @@
         if (input.checked) {
           mode = input.value;
           renderSubscriptionPanel();
+          renderModelLegend();
           renderViews();
         }
       }));
