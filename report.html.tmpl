@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>モデル比較 — スコアとコスト</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #ffffff;
+      --panel: #f2f5f9;
+      --ink: #202e46;
+      --muted: #556783;
+      --rule: #d7e0ec;
+      --action: #2454a6;
+      --warn-bg: #fff5e8;
+      --warn-ink: #754813;
+      --sans: "Avenir Next", "Trebuchet MS", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    a { color: var(--action); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    a:hover { text-decoration-thickness: 2px; }
+    :focus-visible { outline: 3px solid #8fb5f0; outline-offset: 3px; }
+    .skip-link {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 5;
+      transform: translateY(-160%);
+      padding: 8px 12px;
+      background: var(--ink);
+      color: white;
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .page { width: min(1500px, 100%); margin: 0 auto; padding: 0 28px 44px; }
+    .masthead {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 25px 0 21px;
+      border-bottom: 1px solid var(--rule);
+    }
+    h1 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.25rem); font-weight: 650; letter-spacing: -0.035em; line-height: 1.15; }
+    .subtitle { margin: 7px 0 0; color: var(--muted); }
+    .updated { max-width: 420px; color: var(--muted); font-size: .87rem; text-align: right; }
+    .updated p { margin: 2px 0; }
+    .controls {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 15px 28px;
+      margin: 20px 0 13px;
+      padding: 15px 18px;
+      background: var(--panel);
+      border: 1px solid var(--rule);
+    }
+    .control { min-width: 150px; }
+    .control > label, .control legend { display: block; margin-bottom: 5px; color: var(--muted); font-size: .82rem; font-weight: 650; }
+    select {
+      min-height: 40px;
+      min-width: min(280px, 80vw);
+      padding: 7px 34px 7px 10px;
+      border: 1px solid #9cabc0;
+      border-radius: 4px;
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+    }
+    fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+    fieldset legend { padding: 0; }
+    .choice-row { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; min-height: 40px; }
+    .choice-row label, .sub-option { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+    input[type="radio"], input[type="checkbox"] { width: 17px; height: 17px; margin: 0; accent-color: var(--action); flex: 0 0 auto; }
+    .sub-panel {
+      margin: 0 0 18px;
+      padding: 13px 17px 15px;
+      border: 1px solid var(--rule);
+      background: #fbfcfe;
+    }
+    .sub-heading { margin: 0; cursor: pointer; }
+    .sub-heading-content { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-left: 5px; }
+    .sub-heading-title, .section-heading h2 { margin: 0; font-size: 1rem; font-weight: 650; }
+    .sub-count { color: var(--muted); font-size: .84rem; }
+    .sub-instruction { margin: 10px 0 8px; color: var(--muted); font-size: .84rem; }
+    .sub-option { min-height: 35px; justify-content: flex-start; padding: 5px 7px; border-bottom: 1px solid var(--rule); }
+    .sub-option-text { display: flex; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 3px 9px; }
+    .sub-option-name { overflow-wrap: anywhere; }
+    .sub-option-meta { color: var(--muted); font-size: .8rem; }
+    .muted { color: var(--muted); }
+    .analysis { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; align-items: stretch; }
+    .chart-panel, .model-panel { min-width: 0; border: 1px solid var(--rule); background: var(--paper); }
+    .chart-panel { padding: 13px 15px 10px; }
+    .chart-topline { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 0 4px; }
+    .chart-topline h2 { margin: 0; font-size: 1rem; font-weight: 650; }
+    .chart-count { color: var(--muted); font-size: .83rem; text-align: right; }
+    #chart { width: 100%; height: 560px; }
+    .chart-note { min-height: 1.4em; margin: 0 4px 5px; color: var(--muted); font-size: .82rem; }
+    .chart-empty, .chart-failure { margin: 0 4px 8px; padding: 10px 12px; border-left: 3px solid var(--action); background: var(--panel); color: var(--ink); }
+    .chart-failure { border-color: #ad6a12; background: var(--warn-bg); color: var(--warn-ink); }
+    .model-panel { padding: 15px 15px 12px; }
+    .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    .model-help { margin: 0 0 11px; color: var(--muted); font-size: .82rem; }
+    .model-list { max-height: 500px; overflow: auto; overscroll-behavior: contain; }
+    .model-option { display: grid; grid-template-columns: 17px 13px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 35px; padding: 5px 2px; border-bottom: 1px solid #e6ebf2; cursor: pointer; }
+    .model-option span:last-child { overflow-wrap: anywhere; font-size: .88rem; }
+    .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; }
+    .table-section { margin-top: 25px; }
+    .table-intro { display: flex; align-items: baseline; justify-content: space-between; gap: 15px; margin-bottom: 9px; }
+    .table-intro p { margin: 0; color: var(--muted); font-size: .84rem; }
+    .table-scroll { overflow: auto; border: 1px solid var(--rule); }
+    table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: 9px 11px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+    thead th { position: sticky; top: 0; z-index: 1; background: var(--panel); color: var(--ink); font-weight: 650; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #f8fafd; }
+    .numeric { text-align: right; white-space: nowrap; }
+    .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .basis { min-width: 160px; }
+    .methodology { margin-top: 28px; padding-top: 17px; border-top: 1px solid var(--rule); }
+    .methodology h2, .sources h2 { margin: 0 0 7px; font-size: 1rem; }
+    .methodology p { max-width: 1000px; margin: 4px 0; color: var(--muted); font-size: .88rem; }
+    .sources { margin-top: 20px; }
+    .source-list { display: grid; gap: 5px; margin: 0; padding-left: 20px; color: var(--muted); font-size: .85rem; }
+    .source-list li { overflow-wrap: anywhere; }
+    .source-date { margin-left: 6px; }
+    .source-list a { overflow-wrap: anywhere; }
+    .tip-title { margin-bottom: 5px; font-weight: 700; }
+    .tip-row { display: flex; justify-content: space-between; gap: 18px; margin-top: 2px; }
+    .tip-label { color: #607086; }
+    .fallback-legend { margin: 2px 4px 5px; color: var(--muted); font-size: .81rem; }
+    .fallback-dot { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: -2px; border: 2px solid var(--action); border-radius: 50%; background: white; }
+    @media (max-width: 900px) {
+      .analysis { grid-template-columns: minmax(0, 1fr); }
+      .model-panel { order: 2; }
+      .model-list { max-height: 255px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); column-gap: 12px; }
+      #chart { height: 500px; }
+    }
+    @media (max-width: 600px) {
+      .page { padding: 0 14px 32px; }
+      .masthead { display: block; padding: 19px 0 15px; }
+      .updated { margin-top: 11px; text-align: left; }
+      .controls { align-items: flex-start; gap: 14px 20px; padding: 13px; }
+      .control { width: 100%; }
+      .control select { width: 100%; }
+      .choice-row { min-height: 32px; }
+      .sub-heading-content { display: flex; }
+      .sub-list { grid-template-columns: 1fr; }
+      .chart-panel { padding: 11px 8px 8px; }
+      .chart-topline { align-items: start; }
+      #chart { height: 430px; }
+      .model-list { grid-template-columns: 1fr; }
+      .table-intro { display: block; }
+      .table-intro p { margin-top: 3px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#results">結果へ移動</a>
+  <div class="page">
+    <header class="masthead">
+      <div>
+        <h1>モデル比較</h1>
+        <p class="subtitle">ベンチマークスコアと1回あたりの表示コスト</p>
+      </div>
+      <div class="updated" aria-label="データ更新情報">
+        <p>レポート作成: <time id="generated-at">—</time></p>
+        <p>サブスクリプション情報: <time id="subscription-updated">—</time></p>
+      </div>
+    </header>
+
+    <main id="results">
+      <section class="controls" aria-label="比較条件">
+        <div class="control">
+          <label for="benchmark-select">ベンチマーク</label>
+          <select id="benchmark-select"></select>
+        </div>
+        <fieldset class="control">
+          <legend>コスト表示</legend>
+          <div class="choice-row">
+            <label><input type="radio" name="cost-mode" value="api"> API</label>
+            <label><input type="radio" name="cost-mode" value="subscription" checked> サブスク換算</label>
+          </div>
+        </fieldset>
+        <fieldset class="control">
+          <legend>横軸スケール</legend>
+          <div class="choice-row">
+            <label><input type="radio" name="axis-scale" value="log" checked> 対数</label>
+            <label><input type="radio" name="axis-scale" value="linear"> 線形</label>
+          </div>
+        </fieldset>
+      </section>
+
+      <details id="subscription-panel" class="sub-panel" aria-labelledby="subscription-heading">
+        <summary class="sub-heading">
+          <span class="sub-heading-content">
+            <span id="subscription-heading" class="sub-heading-title">換算に使うプラン</span>
+            <span id="enabled-plan-count" class="sub-count" aria-live="polite"></span>
+          </span>
+        </summary>
+        <p class="sub-instruction">複数を選ぶと、モデルごとに最も低い一致プランを使います。</p>
+        <div id="subscription-list" class="sub-list"></div>
+      </details>
+
+      <section class="analysis" aria-label="スコアとコストの比較">
+        <div class="chart-panel">
+          <div class="chart-topline">
+            <h2>スコア × コスト</h2>
+            <div id="chart-count" class="chart-count" aria-live="polite"></div>
+          </div>
+          <p id="chart-note" class="chart-note"></p>
+          <p id="fallback-legend" class="fallback-legend"><span class="fallback-dot" aria-hidden="true"></span> 中抜き丸は API fallback（有効なプラン一致なし）</p>
+          <p id="chart-empty" class="chart-empty" hidden></p>
+          <p id="chart-failure" class="chart-failure" role="status" hidden>グラフライブラリを読み込めませんでした。ネットワーク接続を確認してください。結果表は引き続き利用できます。</p>
+          <div id="chart" role="img" aria-label="ベンチマークスコアと表示コストの散布図"></div>
+        </div>
+        <aside class="model-panel" aria-labelledby="model-heading">
+          <div class="section-heading"><h2 id="model-heading">モデル</h2></div>
+          <p class="model-help">表示するモデルを選択</p>
+          <div id="model-list" class="model-list"></div>
+        </aside>
+      </section>
+
+      <section class="table-section" aria-labelledby="table-heading">
+        <div class="table-intro">
+          <h2 id="table-heading" style="margin:0;font-size:1rem;font-weight:650">結果一覧</h2>
+          <p>現在の条件で絞り込み、スコアの高い順に表示</p>
+        </div>
+        <div class="table-scroll" tabindex="0" aria-label="結果一覧。横にスクロールできます">
+          <table>
+            <thead><tr>
+              <th scope="col">モデル</th>
+              <th scope="col">エージェント</th>
+              <th scope="col">Effort</th>
+              <th scope="col" class="numeric" id="table-score-heading">スコア</th>
+              <th scope="col" class="numeric">API USD</th>
+              <th scope="col" class="numeric">表示 USD</th>
+              <th scope="col">コスト基準</th>
+            </tr></thead>
+            <tbody id="results-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="methodology" aria-labelledby="methodology-heading">
+        <h2 id="methodology-heading">読み方と方法</h2>
+        <p id="benchmark-definition"></p>
+        <p>サブスク換算は API USD × 月額料金 ÷ API価値で計算します。モデル名は見た目上のslug表記だけを整えた完全一致で照合し、バージョンやファミリー間の推定はしません。換算額は測定された利用量に基づき、プラン容量を保証するものではありません。共有枠、複数モデルの利用、キャッシュ、期間途中の利用などはベンチマーク条件と異なることがあります。</p>
+        <p>スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。Terminal-Bench の費用は1試行あたりです。</p>
+        <p id="benchmark-link-row"></p>
+      </section>
+
+      <section class="sources" aria-labelledby="sources-heading">
+        <h2 id="sources-heading">データソース</h2>
+        <ul id="source-list" class="source-list"></ul>
+      </section>
+    </main>
+  </div>
+  <script type="application/json" id="report-data">{{.ReportJSON}}</script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js" crossorigin="anonymous"></script>
+  <script>
+    (() => {
+      'use strict';
+      const REPORT = JSON.parse(document.getElementById('report-data').textContent);
+      const $ = (id) => document.getElementById(id);
+      const palette = ['#2454a6', '#b34c38', '#2f826d', '#8c5e9f', '#b27618', '#277d9a', '#b44778', '#587a42', '#6e66a8', '#a45e33', '#3b70bb', '#49727b'];
+      const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 4 });
+      const axisUSDFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 3 });
+      const effortOrder = new Map(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].map((effort, index) => [effort, index]));
+      let mode = 'subscription';
+      let narrowPlot = window.matchMedia('(max-width: 600px)').matches;
+      let axisScale = 'log';
+      let chart = null;
+      const modelEnabled = new Map();
+      const subscriptionEnabled = (REPORT.subscriptions || []).map(() => true);
+      const benchmarkSelect = $('benchmark-select');
+
+      function text(value) { return value == null ? '' : String(value); }
+      function normalizeEffort(value) { return text(value).toLowerCase().replace(/[^a-z0-9]/g, ''); }
+      function compareEffortRows(a, b) {
+        const aEffort = text(a.point.effort);
+        const bEffort = text(b.point.effort);
+        const aRank = effortOrder.get(normalizeEffort(aEffort)) ?? -1;
+        const bRank = effortOrder.get(normalizeEffort(bEffort)) ?? -1;
+        if (aRank !== bRank) {
+          if (aRank < 0) return 1;
+          if (bRank < 0) return -1;
+          return aRank - bRank;
+        }
+        return a.cost - b.cost ||
+          aEffort.localeCompare(bEffort, undefined, { numeric: true, sensitivity: 'base' }) ||
+          Number(a.point.score) - Number(b.point.score) ||
+          text(a.point.id).localeCompare(text(b.point.id));
+      }
+      function formatDate(value) {
+        const raw = text(value);
+        if (!raw) return '未記録';
+        const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+        const date = new Date(dateOnly ? `${raw}T00:00:00` : raw);
+        if (Number.isNaN(date.getTime())) return raw;
+        const options = dateOnly ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' };
+        return new Intl.DateTimeFormat('ja-JP', options).format(date);
+      }
+      function formatUSD(value) {
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) return '—';
+        return amount === 0 ? '$0.00' : usdFormatter.format(amount);
+      }
+      function formatAxisUSD(value) {
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) return '—';
+        return amount === 0 ? '$0.00' : axisUSDFormatter.format(amount);
+      }
+      function formatScore(value) {
+        return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(value));
+      }
+      function formatFactor(value) {
+        return value == null || !Number.isFinite(value) ? '不明' : new Intl.NumberFormat('ja-JP', { maximumSignificantDigits: 4 }).format(value);
+      }
+      function safeURL(value) {
+        try {
+          const url = new URL(text(value));
+          return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+        } catch (_) { return ''; }
+      }
+      function anchor(label, url) {
+        const a = document.createElement('a');
+        a.textContent = label;
+        a.href = url;
+        a.rel = 'noreferrer';
+        a.target = '_blank';
+        return a;
+      }
+      function makeCell(value, className) {
+        const cell = document.createElement('td');
+        if (className) cell.className = className;
+        cell.textContent = text(value);
+        return cell;
+      }
+      function activeBenchmark() {
+        return REPORT.benchmarks && REPORT.benchmarks[Number(benchmarkSelect.value)] || null;
+      }
+      function initBenchmarks() {
+        const benchmarks = REPORT.benchmarks || [];
+        benchmarkSelect.replaceChildren();
+        benchmarks.forEach((benchmark, index) => {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = benchmark.title || benchmark.id || `ベンチマーク ${index + 1}`;
+          benchmarkSelect.append(option);
+        });
+        benchmarkSelect.disabled = benchmarks.length === 0;
+        benchmarkSelect.value = benchmarks.length ? '0' : '';
+      }
+      function renderDates() {
+        $('generated-at').textContent = formatDate(REPORT.generatedAt);
+        $('subscription-updated').textContent = formatDate(REPORT.subscriptionUpdated);
+      }
+      function renderEnabledPlanCount() {
+        const subscriptions = REPORT.subscriptions || [];
+        const enabled = subscriptions.reduce((count, _, index) => count + (subscriptionEnabled[index] !== false ? 1 : 0), 0);
+        $('enabled-plan-count').textContent = `${enabled} / ${subscriptions.length} プラン有効`;
+      }
+      function renderSubscriptionPanel() {
+        const panel = $('subscription-panel');
+        panel.hidden = mode !== 'subscription';
+        $('fallback-legend').hidden = mode !== 'subscription';
+        renderEnabledPlanCount();
+        const list = $('subscription-list');
+        list.replaceChildren();
+        const subscriptions = REPORT.subscriptions || [];
+        if (!subscriptions.length) {
+          const empty = document.createElement('p');
+          empty.className = 'muted';
+          empty.textContent = 'プラン情報がありません。サブスク換算では API 費用を表示します。';
+          list.append(empty);
+          return;
+        }
+        subscriptions.forEach((subscription, index) => {
+          const label = document.createElement('label');
+          label.className = 'sub-option';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = subscriptionEnabled[index] !== false;
+          checkbox.addEventListener('change', () => {
+            subscriptionEnabled[index] = checkbox.checked;
+            renderEnabledPlanCount();
+            renderViews();
+          });
+          const content = document.createElement('span');
+          content.className = 'sub-option-text';
+          const name = document.createElement('span');
+          name.className = 'sub-option-name';
+          name.textContent = text(subscription.name);
+          const monthly = document.createElement('span');
+          monthly.className = 'sub-option-meta money';
+          monthly.textContent = `${formatUSD(subscription.monthlyUSD)}/月`;
+          const factor = document.createElement('span');
+          factor.className = 'sub-option-meta';
+          const ratio = Number(subscription.apiValueUSD) > 0 ? Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD) : null;
+          factor.textContent = `係数 ×${formatFactor(ratio)}`;
+          content.append(name, monthly, factor);
+          label.append(checkbox, content);
+          list.append(label);
+        });
+      }
+      function renderDefinitions() {
+        const benchmark = activeBenchmark();
+        $('table-score-heading').textContent = benchmark && benchmark.scoreLabel ? `スコア (${benchmark.scoreLabel})` : 'スコア';
+        const definition = $('benchmark-definition');
+        if (!benchmark) {
+          definition.textContent = 'ベンチマークのデータがありません。';
+        } else {
+          const details = [];
+          if (benchmark.scoreLabel) details.push(`スコア: ${benchmark.scoreLabel}`);
+          if (benchmark.costNote) details.push(`費用: ${benchmark.costNote}`);
+          definition.textContent = details.length ? details.join('。') + '。' : 'スコアと費用は、選択したベンチマークのデータに基づきます。';
+        }
+        const linkRow = $('benchmark-link-row');
+        linkRow.replaceChildren();
+        if (benchmark && safeURL(benchmark.url)) {
+          linkRow.append(document.createTextNode('ベンチマーク: '), anchor(benchmark.title || benchmark.id || '元データ', safeURL(benchmark.url)));
+        }
+      }
+      function renderSources() {
+        const list = $('source-list');
+        list.replaceChildren();
+        (REPORT.sources || []).forEach((source) => {
+          const li = document.createElement('li');
+          const url = safeURL(source.url);
+          if (url) li.append(anchor(source.name || source.file || url, url));
+          else li.append(document.createTextNode(source.name || source.file || 'データソース'));
+          if (source.fetchedAt) {
+            const fetched = document.createElement('span');
+            fetched.className = 'source-date';
+            fetched.textContent = `取得: ${formatDate(source.fetchedAt)}`;
+            li.append(fetched);
+          }
+          list.append(li);
+        });
+        if (!list.children.length) {
+          const li = document.createElement('li');
+          li.textContent = 'ソース情報がありません。';
+          list.append(li);
+        }
+      }
+      function modelColor(model, points) {
+        for (const row of points) {
+          const color = text(row.color);
+          if (row.model === model && /^#[0-9a-f]{3}(?:[0-9a-f]{3}|[0-9a-f]{5})?$/i.test(color)) return color;
+        }
+        let hash = 0;
+        for (const char of model) hash = (hash * 31 + char.codePointAt(0)) | 0;
+        return palette[(hash >>> 0) % palette.length];
+      }
+      function renderModelLegend() {
+        const list = $('model-list');
+        list.replaceChildren();
+        const benchmark = activeBenchmark();
+        if (!benchmark || !benchmark.points || !benchmark.points.length) {
+          const empty = document.createElement('p');
+          empty.className = 'muted';
+          empty.textContent = 'モデルデータがありません。';
+          list.append(empty);
+          return;
+        }
+        const models = [...new Set(benchmark.points.map((point) => text(point.model)))].sort((a, b) => a.localeCompare(b));
+        models.forEach((model) => {
+          if (!modelEnabled.has(model)) modelEnabled.set(model, true);
+          const label = document.createElement('label');
+          label.className = 'model-option';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = modelEnabled.get(model) !== false;
+          checkbox.addEventListener('change', () => {
+            modelEnabled.set(model, checkbox.checked);
+            renderViews();
+          });
+          const swatch = document.createElement('span');
+          swatch.className = 'swatch';
+          swatch.style.color = modelColor(model, benchmark.points);
+          const name = document.createElement('span');
+          name.textContent = model;
+          label.append(checkbox, swatch, name);
+          list.append(label);
+        });
+      }
+      function chosenOffer(point) {
+        if (mode !== 'subscription') return null;
+        const enabledPlans = new Set((REPORT.subscriptions || []).filter((_, index) => subscriptionEnabled[index] !== false).map((subscription) => subscription.name));
+        let best = null;
+        for (const offer of point.offers || []) {
+          if (!enabledPlans.has(offer.plan)) continue;
+          if (!best || Number(offer.cost) < Number(best.cost) || (Number(offer.cost) === Number(best.cost) && text(offer.plan).localeCompare(text(best.plan)) < 0)) best = offer;
+        }
+        return best;
+      }
+      function factorFor(offer, point) {
+        const subscription = (REPORT.subscriptions || []).find((candidate) => candidate.name === offer.plan && Number(candidate.apiValueUSD) > 0);
+        if (subscription) return Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD);
+        return Number(point.apiCost) !== 0 ? Number(offer.cost) / Number(point.apiCost) : null;
+      }
+      function rowsForBenchmark() {
+        const benchmark = activeBenchmark();
+        if (!benchmark || !benchmark.points) return [];
+        return benchmark.points.filter((point) => modelEnabled.get(text(point.model)) !== false).map((point) => {
+          const offer = chosenOffer(point);
+          const matched = offer !== null;
+          return {
+            point,
+            cost: matched ? Number(offer.cost) : Number(point.apiCost),
+            offer: matched ? offer : null,
+            factor: matched ? factorFor(offer, point) : null,
+            fallback: mode === 'subscription' && !matched
+          };
+        });
+      }
+      function basisText(row) {
+        if (row.offer) return `${text(row.offer.plan)}（係数 ×${formatFactor(row.factor)}）`;
+        return row.fallback ? 'API fallback' : 'API';
+      }
+      function renderTable() {
+        const body = $('results-body');
+        body.replaceChildren();
+        const rows = rowsForBenchmark().sort((a, b) => Number(b.point.score) - Number(a.point.score) || text(a.point.model).localeCompare(text(b.point.model)) || text(a.point.effort).localeCompare(text(b.point.effort), undefined, { numeric: true }) || text(a.point.agent).localeCompare(text(b.point.agent)));
+        if (!rows.length) {
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 7;
+          td.className = 'muted';
+          td.textContent = '該当する結果はありません。';
+          tr.append(td);
+          body.append(tr);
+          return;
+        }
+        rows.forEach((row) => {
+          const point = row.point;
+          const tr = document.createElement('tr');
+          tr.append(
+            makeCell(point.model), makeCell(point.agent), makeCell(point.effort),
+            makeCell(formatScore(point.score), 'numeric'),
+            makeCell(formatUSD(point.apiCost), 'numeric money'),
+            makeCell(formatUSD(row.cost), 'numeric money'),
+            makeCell(basisText(row), 'basis')
+          );
+          body.append(tr);
+        });
+      }
+      function escapeHTML(value) {
+        return text(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+      }
+      function tooltipHTML(row) {
+        const point = row.point;
+        const basis = row.offer ? `${text(row.offer.plan)}（係数 ×${formatFactor(row.factor)}）` : row.fallback ? 'API fallback' : 'API';
+        const line = (label, value) => `<div class="tip-row"><span class="tip-label">${escapeHTML(label)}</span><span>${escapeHTML(value)}</span></div>`;
+        return `<div class="tip-title">${escapeHTML(point.model)}</div>${line('エージェント', point.agent)}${line('Effort', point.effort)}${line('スコア', formatScore(point.score))}${line('API USD', formatUSD(point.apiCost))}${line('表示 USD', formatUSD(row.cost))}${line('コスト基準', basis)}`;
+      }
+      function renderChart() {
+        const benchmark = activeBenchmark();
+        const visibleRows = rowsForBenchmark();
+        const chartableRows = visibleRows.filter((row) => axisScale === 'log' ? row.cost > 0 : row.cost >= 0);
+        const excluded = visibleRows.length - chartableRows.length;
+        const exclusionLabel = axisScale === 'log' ? `対数軸で 0 以下 ${excluded} 件` : `線形軸で負の費用 ${excluded} 件`;
+        $('chart-count').textContent = `${visibleRows.length} 件を表に表示${excluded ? `、${exclusionLabel}を除外` : ''}`;
+        $('chart-note').textContent = excluded ? axisScale === 'log' ? '対数軸では0以下の費用を描画できません。線形軸では表示でき、結果表には常に全件を表示します。' : '負の費用は図に表示できません。結果表には全件を表示します。' : '';
+        const empty = $('chart-empty');
+        empty.hidden = chartableRows.length > 0;
+        if (!benchmark || !benchmark.points || !benchmark.points.length) {
+          empty.textContent = 'このベンチマークに表示できるデータがありません。';
+        } else if (!visibleRows.length) {
+          empty.textContent = 'モデルを1つ以上選択してください。';
+        } else if (!chartableRows.length && axisScale === 'log') {
+          empty.textContent = '正の表示コストがありません。線形軸に切り替えると0 USDを表示できます。';
+        } else {
+          empty.textContent = '表示できる結果がありません。';
+        }
+        if (!window.echarts) {
+          $('chart-failure').hidden = false;
+          return;
+        }
+        $('chart-failure').hidden = true;
+        if (!chart) chart = window.echarts.init($('chart'), null, { renderer: 'canvas' });
+        chart.clear();
+        if (!chartableRows.length) return;
+
+        const groups = new Map();
+        chartableRows.forEach((row) => {
+          const key = `${text(row.point.model)}\u0000${text(row.point.agent)}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(row);
+        });
+        for (const group of groups.values()) group.sort(compareEffortRows);
+        const curveGroups = [...groups.values()];
+        const labeledGroups = new Set();
+        if (!narrowPlot) {
+          curveGroups
+            .map((group, index) => ({ index, score: Number(group[group.length - 1].point.score), model: text(group[0].point.model), agent: text(group[0].point.agent) }))
+            .sort((a, b) => b.score - a.score || a.model.localeCompare(b.model) || a.agent.localeCompare(b.agent))
+            .slice(0, 8)
+            .forEach(({ index }) => labeledGroups.add(index));
+        }
+        const colors = new Map();
+        const series = curveGroups.map((group, index) => {
+          const model = text(group[0].point.model);
+          const color = colors.get(model) || modelColor(model, benchmark.points);
+          colors.set(model, color);
+          const last = group.length - 1;
+          return {
+            id: `curve-${index}`,
+            name: `${model} / ${text(group[0].point.agent)}`,
+            type: 'line',
+            showSymbol: true,
+            symbol: 'circle',
+            symbolSize: 8,
+            connectNulls: false,
+            lineStyle: { color, width: 1.6, opacity: 0.78 },
+            itemStyle: { color },
+            emphasis: { focus: 'series', scale: true, lineStyle: { width: 2.5 } },
+            label: { show: false },
+            labelLayout: { hideOverlap: true, moveOverlap: 'shiftY' },
+            data: group.map((row, pointIndex) => ({
+              value: [row.cost, Number(row.point.score)],
+              point: row.point,
+              row,
+              endLabel: `${text(row.point.model)} / ${text(row.point.effort)}`,
+              label: { show: labeledGroups.has(index) && pointIndex === last, position: 'left', align: 'right', distance: 4, color, fontSize: narrowPlot ? 10 : 11, formatter: (params) => params.data.endLabel },
+              itemStyle: row.fallback ? { color: '#ffffff', borderColor: color, borderWidth: 2.3 } : { color, borderColor: color, borderWidth: 1 }
+            }))
+          };
+        });
+        chart.setOption({
+          animation: false,
+          aria: { enabled: true, description: `${benchmark.title || benchmark.id || 'ベンチマーク'}のスコアと表示コスト。モデルとエージェントごとの努力水準を線で結んでいます。` },
+          grid: { left: narrowPlot ? 44 : 72, right: narrowPlot ? 12 : 28, top: narrowPlot ? 29 : 37, bottom: narrowPlot ? 54 : 67, containLabel: true },
+          tooltip: {
+            trigger: 'item',
+            renderMode: 'html',
+            confine: true,
+            backgroundColor: '#ffffff',
+            borderColor: '#b9c7d8',
+            borderWidth: 1,
+            textStyle: { color: '#202e46', fontFamily: 'Avenir Next, Trebuchet MS, system-ui, sans-serif', fontSize: 12 },
+            formatter: (params) => {
+              const item = Array.isArray(params) ? params[0] : params;
+              return item && item.data && item.data.row ? tooltipHTML(item.data.row) : '';
+            }
+          },
+          xAxis: {
+            type: axisScale === 'log' ? 'log' : 'value',
+            min: axisScale === 'linear' ? 0 : undefined,
+            name: '表示コスト（USD）',
+            nameLocation: 'middle',
+            nameGap: narrowPlot ? 30 : 42,
+            axisLabel: { color: '#556783', formatter: formatAxisUSD, hideOverlap: true, fontSize: narrowPlot ? 10 : 12 },
+            axisLine: { lineStyle: { color: '#9eacc0' } },
+            splitLine: { lineStyle: { color: '#e5ebf2' } }
+          },
+          yAxis: {
+            type: 'value',
+            name: benchmark.scoreLabel || 'スコア',
+            nameLocation: 'middle',
+            nameGap: narrowPlot ? 34 : 52,
+            axisLabel: { color: '#556783', hideOverlap: true, fontSize: narrowPlot ? 10 : 12 },
+            axisLine: { lineStyle: { color: '#9eacc0' } },
+            splitLine: { lineStyle: { color: '#e5ebf2' } }
+          },
+          dataZoom: [{ type: 'inside', xAxisIndex: 0, filterMode: 'none' }],
+          series
+        }, true);
+      }
+      function renderViews() {
+        renderTable();
+        renderChart();
+      }
+      benchmarkSelect.addEventListener('change', () => {
+        renderDefinitions();
+        renderModelLegend();
+        renderViews();
+      });
+      document.querySelectorAll('input[name="cost-mode"]').forEach((input) => input.addEventListener('change', () => {
+        if (input.checked) {
+          mode = input.value;
+          renderSubscriptionPanel();
+          renderViews();
+        }
+      }));
+      document.querySelectorAll('input[name="axis-scale"]').forEach((input) => input.addEventListener('change', () => {
+        if (input.checked) {
+          axisScale = input.value;
+          renderChart();
+        }
+      }));
+      initBenchmarks();
+      renderDates();
+      renderSubscriptionPanel();
+      renderDefinitions();
+      renderSources();
+      renderModelLegend();
+      if (window.echarts) {
+        chart = window.echarts.init($('chart'), null, { renderer: 'canvas' });
+      }
+      renderViews();
+      window.addEventListener('resize', () => {
+        if (chart) chart.resize();
+        const nextNarrowPlot = window.matchMedia('(max-width: 600px)').matches;
+        if (nextNarrowPlot !== narrowPlot) {
+          narrowPlot = nextNarrowPlot;
+          renderChart();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
