@@ -1,6 +1,6 @@
 package main
 
-// These short-context list prices are blended for the standard workload below.
+// Hand-maintained list prices use the standard 97% cache / 2.5% input / 0.5% output mix.
 type apiPrice struct {
 	CacheRead  float64
 	FreshInput float64
@@ -17,7 +17,6 @@ var handAPIPrices = map[string]apiPrice{
 	"gpt-6-sol":        {CacheRead: 0.2, FreshInput: 2, Output: 10},
 	"gpt-6.1-sol":      {CacheRead: 0.1, FreshInput: 2, Output: 10},
 	"gpt-6-luna":       {CacheRead: 0.01, FreshInput: 0.1, Output: 0.5},
-	"gpt-5.5":          {CacheRead: 0.5, FreshInput: 5, Output: 30},
 	"claude-fable-5.2": {CacheRead: 0.2, FreshInput: 10, Output: 40},
 	"claude-opus-4.8":  {CacheRead: 0.5, FreshInput: 6.25, Output: 25},
 }

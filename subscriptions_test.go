@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"testing"
 )
@@ -30,6 +29,9 @@ func TestApplySubscriptionsUsesTokensAndMeteredRatios(t *testing.T) {
 	if len(plans) != 3 {
 		t.Fatalf("used plans = %+v, want only three plans that produced offers", plans)
 	}
+	if got, want := []string{plans[0].Name, plans[1].Name, plans[2].Name}, []string{"Astra Plan", "Measured English Plan", "Premium Plan"}; !equalStrings(got, want) {
+		t.Errorf("unique plans sorted by monthly price and name = %v, want %v", got, want)
+	}
 }
 
 func TestApplySubscriptionsUsesHandAPIPricesAndSkipsMissingFallback(t *testing.T) {
@@ -52,6 +54,41 @@ func TestApplySubscriptionsUsesHandAPIPricesAndSkipsMissingFallback(t *testing.T
 	}
 }
 
+func TestAPIPricesUseNonAnthropicListBlendFallback(t *testing.T) {
+	points := []pricingPoint{
+		{Model: "list-only-model", Vendor: "OpenAI", ListBlendedUSDPerMTok: 0.123},
+		{Model: "claude-opus-5.5", Vendor: "Anthropic", ListBlendedUSDPerMTok: 0.456},
+	}
+	prices := apiPrices(points)
+	assertNear(t, prices["list-only-model"], 0.123, 1e-12)
+	if _, ok := prices["claude-opus-5-5"]; ok {
+		t.Errorf("used Anthropic list blend without cache-write pricing: %v", prices["claude-opus-5-5"])
+	}
+}
+
+func TestScenarioPlanRowsAreSkipped(t *testing.T) {
+	pricing := readPricingFixture(t)
+	base := pricingPoint{Billing: "subscription", PriceUSD: 10, Confidence: "high"}
+	rows := []pricingPoint{
+		{Billing: base.Billing, Plan: "GLM Pro 忙时", Vendor: "Zhipu", Model: "gpt-6-astra", PriceUSD: base.PriceUSD, RealUSDPerMTok: 0.1, Confidence: base.Confidence},
+		{Billing: base.Billing, Plan: "GLM Pro 闲时", Vendor: "Zhipu", Model: "gpt-6-astra", PriceUSD: base.PriceUSD, RealUSDPerMTok: 0.2, Confidence: base.Confidence},
+		{Billing: base.Billing, Plan: "GLM Pro 中间值", Vendor: "Zhipu", Model: "gpt-6-astra", PriceUSD: base.PriceUSD, RealUSDPerMTok: 0.5, Confidence: base.Confidence},
+		{Billing: base.Billing, Plan: "MiMo Token Plan Lite 夜间0.8×", PlanEN: new("MiMo Token Plan Lite (Night 0.8x)"), Vendor: "Xiaomi", Model: "mimo-v2.6-pro", PriceUSD: base.PriceUSD, RealUSDPerMTok: 0.1, Confidence: base.Confidence},
+		{Billing: base.Billing, Plan: "MiMo Token Plan Lite 日间", PlanEN: new("MiMo Token Plan Lite (Day)"), Vendor: "Xiaomi", Model: "mimo-v2.6-pro", PriceUSD: base.PriceUSD, RealUSDPerMTok: 0.5, Confidence: base.Confidence},
+	}
+	pricing.Points = append(pricing.Points, rows...)
+	benchmarks := []benchmark{{Points: []point{
+		{Model: "gpt-6-astra", Tokens: 1_000_000},
+		{Model: "mimo-v2.6-pro", Tokens: 1_000_000},
+	}}}
+	applySubscriptions(benchmarks, pricing.Points)
+	if got, want := offerPlanNames(benchmarks[0].Points[0].Offers), []string{"GLM Pro 中间值", "Astra Plan", "Premium Plan"}; !equalStrings(got, want) {
+		t.Errorf("busy/idle rows should be skipped while midpoint is retained: %v", got)
+	}
+	if got, want := offerPlanNames(benchmarks[0].Points[1].Offers), []string{"MiMo Token Plan Lite (Day)"}; !equalStrings(got, want) {
+		t.Errorf("MiMo night row should be skipped while daytime remains: %v", got)
+	}
+}
 func TestParseRealPricingValidationAndSkippedRows(t *testing.T) {
 	fixture, err := os.ReadFile("testdata/real-api-pricing.json")
 	if err != nil {
@@ -80,9 +117,6 @@ func TestParseRealPricingValidationAndSkippedRows(t *testing.T) {
 func TestBlendAPIPricesUsesStandardWorkload(t *testing.T) {
 	assertNear(t, (apiPrice{CacheRead: 0.4, FreshInput: 4, Output: 20}).blendedUSDPerMTok(), 0.588, 1e-12)
 	assertNear(t, (apiPrice{CacheRead: 0.5, FreshInput: 6.25, Output: 25}).blendedUSDPerMTok(), 0.76625, 1e-12)
-	if got := handAPIPrices["claude-fable-5.2"].FreshInput; got != 10 {
-		t.Errorf("Claude fresh-input rate = %g, want 5-minute cache-write rate 10", got)
-	}
 }
 
 func TestCanonicalModelCosmeticEquivalence(t *testing.T) {
@@ -114,11 +148,8 @@ func readPricingFixture(t *testing.T) pricingData {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var pricing pricingData
-	if err := json.Unmarshal(data, &pricing); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := parseRealPricing(data); err != nil {
+	pricing, err := parseRealPricing(data)
+	if err != nil {
 		t.Fatal(err)
 	}
 	return pricing

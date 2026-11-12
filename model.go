@@ -24,20 +24,20 @@ type offer struct {
 
 type subscription struct {
 	Name       string  `json:"name"`
-	Vendor     string  `json:"vendor"`
 	MonthlyUSD float64 `json:"monthlyUSD"`
 }
 
 type pricingPoint struct {
-	Billing        string  `json:"billing"`
-	Plan           string  `json:"plan"`
-	PlanEN         *string `json:"plan_en"`
-	Vendor         string  `json:"vendor"`
-	Model          string  `json:"model"`
-	PriceUSD       float64 `json:"price_usd"`
-	RealUSDPerMTok float64 `json:"real_usd_per_mtok"`
-	Unmetered      bool    `json:"unmetered"`
-	Confidence     string  `json:"confidence"`
+	Billing               string  `json:"billing"`
+	Plan                  string  `json:"plan"`
+	PlanEN                *string `json:"plan_en"`
+	Vendor                string  `json:"vendor"`
+	Model                 string  `json:"model"`
+	PriceUSD              float64 `json:"price_usd"`
+	ListBlendedUSDPerMTok float64 `json:"list_blended_usd_per_mtok"`
+	RealUSDPerMTok        float64 `json:"real_usd_per_mtok"`
+	Unmetered             bool    `json:"unmetered"`
+	Confidence            string  `json:"confidence"`
 }
 
 type pricingData struct {

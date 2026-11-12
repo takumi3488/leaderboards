@@ -92,10 +92,10 @@
     .sub-heading-title, .section-heading h2 { margin: 0; font-size: 1rem; font-weight: 650; }
     .sub-count { color: var(--muted); font-size: .84rem; }
     .sub-instruction { margin: 10px 0 8px; color: var(--muted); font-size: .84rem; }
-    .vendor-group { margin-top: 8px; border: 1px solid var(--rule); }
-    .vendor-option { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 5px 8px; background: var(--panel); font-weight: 650; cursor: pointer; }
-    .vendor-plans { padding-left: 12px; }
     .sub-option { min-height: 35px; justify-content: flex-start; padding: 5px 7px; border-bottom: 1px solid var(--rule); }
+    .sub-option-text { display: flex; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 3px 9px; }
+    .sub-option-name { overflow-wrap: anywhere; }
+    .sub-option-meta { color: var(--muted); font-size: .8rem; }
     .muted { color: var(--muted); }
     .analysis { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; align-items: stretch; }
     .chart-panel, .model-panel { min-width: 0; border: 1px solid var(--rule); background: var(--paper); }
@@ -173,7 +173,7 @@
       </div>
       <div class="updated" aria-label="Data update information" data-i18n-aria-label="updatedLabel">
         <p><span data-i18n="generatedAtLabel">Report generated:</span> <time id="generated-at"></time></p>
-        <p><span data-i18n="subscriptionUpdatedLabel">Subscription data:</span> <time id="subscription-updated"></time></p>
+        <p><span data-i18n="subscriptionUpdatedLabel">Pricing data:</span> <time id="subscription-updated"></time></p>
       </div>
     </header>
 
@@ -206,7 +206,7 @@
             <span id="enabled-plan-count" class="sub-count" aria-live="polite"></span>
           </span>
         </summary>
-        <p class="sub-instruction" data-i18n="subscriptionInstruction">When multiple plans are selected, the lowest matching plan is used for each model.</p>
+        <p class="sub-instruction" data-i18n="subscriptionInstruction">Toggle plans individually; the lowest enabled matching plan is used for each model.</p>
         <div id="subscription-list" class="sub-list"></div>
       </details>
 
@@ -253,7 +253,7 @@
       <section class="methodology" aria-labelledby="methodology-heading">
         <h2 id="methodology-heading" data-i18n="methodologyHeading">How to read this report</h2>
         <p id="benchmark-definition"></p>
-        <p data-i18n="subscriptionMethodology">Subscription estimates are calculated as API USD × monthly price ÷ API value. Model names are matched exactly after normalizing only their display slugs; versions and families are not inferred. Estimates are based on measured usage and do not guarantee plan capacity. Shared quotas, use of multiple models, caching, and usage during a partial billing period may differ from benchmark conditions.</p>
+        <p data-i18n="subscriptionMethodology">Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row's workload (standard, anthropic, low-cache, or measured raw samples); metered rows are "API list price (metered row)", not API usage measurements. Hand-maintained API prices use official price lists.</p>
         <p data-i18n="scoreMethodology">Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench costs are per trial.</p>
         <p id="benchmark-link-row"></p>
       </section>
@@ -287,8 +287,7 @@
           logScale: 'Logarithmic',
           linearScale: 'Linear',
           subscriptionHeading: 'Plans used for estimates',
-          subscriptionInstruction: 'Toggle a vendor or individual plans; the lowest enabled matching plan is used for each model.',
-          toggleVendor: (vendor) => `Toggle ${vendor} plans`,
+          subscriptionInstruction: 'Toggle plans individually; the lowest enabled matching plan is used for each model.',
           analysisLabel: 'Score and cost comparison',
           chartHeading: 'Score × cost',
           fallbackLegend: 'Hollow circles indicate API fallback (no enabled plan match)',
@@ -307,7 +306,7 @@
           displayUsdColumn: 'Display USD',
           costBasisColumn: 'Cost basis',
           methodologyHeading: 'How to read this report',
-          subscriptionMethodology: 'Terminal-Bench estimates use tokens per rollout × plan real $/MTok. FrontierCode reports output tokens only, so estimates scale API cost by plan real $/MTok ÷ model API $/MTok. real-api-pricing assumes full allowance use at 97% cache reads, 2.5% fresh input, and 0.5% output; a few API prices come from official lists in this repo.',
+          subscriptionMethodology: 'Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row’s workload (standard, anthropic, low-cache, or measured raw samples); metered rows are “API list price (metered row)”, not API usage measurements. Hand-maintained API prices use official price lists.',
           scoreMethodology: 'Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench costs are per trial.',
           sourcesHeading: 'Data sources',
           unrecorded: 'Not recorded',
@@ -358,8 +357,7 @@
           logScale: '対数',
           linearScale: '線形',
           subscriptionHeading: '換算に使うプラン',
-          subscriptionInstruction: 'ベンダーまたは個別プランを切り替えます。有効な一致プランのうち最安値を使います。',
-          toggleVendor: (vendor) => `${vendor} のプランを切り替え`,
+          subscriptionInstruction: 'プランを個別に ON/OFF できます。有効な一致プランのうち最安値をモデルごとに使います。',
           analysisLabel: 'スコアとコストの比較',
           chartHeading: 'スコア × コスト',
           fallbackLegend: '中抜き丸は API fallback（有効なプラン一致なし）',
@@ -378,7 +376,7 @@
           displayUsdColumn: '表示 USD',
           costBasisColumn: 'コスト基準',
           methodologyHeading: '読み方と方法',
-          subscriptionMethodology: 'Terminal-Bench は rollout あたりのトークン数 × プラン実質 $/MTok で換算します。出力トークンのみを報告する FrontierCode は、API 料金 × プラン実質 $/MTok ÷ モデル API $/MTok で換算します。real-api-pricing は枠全量利用とキャッシュ読み取り 97%・新規入力 2.5%・出力 0.5% を想定し、一部の API 価格は公式価格表に基づきます。',
+          subscriptionMethodology: 'サブスク換算は、Terminal-Bench では rollout あたりのトークン数 × プラン実質 $/MTok、出力トークンのみの FrontierCode では API 費用 × プラン実質 $/MTok ÷ モデル API $/MTok です。real-api-pricing のプラン価格は各行の workload（standard / anthropic / low-cache / measured raw samples）に従います。metered 行は「API list price (metered row)」で、API 使用量の実測値ではありません。手動価格は公式価格表に基づきます。',
           scoreMethodology: 'スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。Terminal-Bench の費用は1試行あたりです。',
           sourcesHeading: 'データソース',
           unrecorded: '未記録',
@@ -540,9 +538,10 @@
         $('subscription-updated').textContent = formatDate(REPORT.subscriptionUpdated);
       }
       function renderEnabledPlanCount() {
-        const names = new Set((REPORT.subscriptions || []).map((subscription) => subscription.name));
-        const enabled = [...names].filter((name) => subscriptionEnabled.get(name) !== false).length;
-        $('enabled-plan-count').textContent = t('enabledPlans', enabled, names.size);
+        const subscriptions = REPORT.subscriptions || [];
+        const enabled = subscriptions.reduce((count, subscription) =>
+          count + (subscriptionEnabled.get(subscription.name) !== false ? 1 : 0), 0);
+        $('enabled-plan-count').textContent = t('enabledPlans', enabled, subscriptions.length);
       }
       function renderSubscriptionPanel() {
         const panel = $('subscription-panel');
@@ -551,64 +550,29 @@
         renderEnabledPlanCount();
         const list = $('subscription-list');
         list.replaceChildren();
-        const vendors = new Map();
         (REPORT.subscriptions || []).forEach((subscription) => {
-          const vendor = text(subscription.vendor) || t('dataSource');
-          if (!vendors.has(vendor)) vendors.set(vendor, []);
-          vendors.get(vendor).push(subscription);
-        });
-        [...vendors.entries()].sort(([left], [right]) => left.localeCompare(right)).forEach(([vendor, plans]) => {
-          const group = document.createElement('div');
-          group.className = 'vendor-group';
-          const vendorLabel = document.createElement('label');
-          vendorLabel.className = 'vendor-option';
-          const vendorCheckbox = document.createElement('input');
-          vendorCheckbox.type = 'checkbox';
-          vendorCheckbox.setAttribute('aria-label', t('toggleVendor', vendor));
-          const names = [...new Set(plans.map((plan) => plan.name))];
-          const enabledNames = names.filter((name) => subscriptionEnabled.get(name) !== false).length;
-          vendorCheckbox.checked = enabledNames === names.length;
-          vendorCheckbox.indeterminate = enabledNames > 0 && enabledNames < names.length;
-          vendorCheckbox.addEventListener('change', () => {
-            names.forEach((name) => subscriptionEnabled.set(name, vendorCheckbox.checked));
+          const label = document.createElement('label');
+          label.className = 'sub-option';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = subscriptionEnabled.get(subscription.name) !== false;
+          checkbox.addEventListener('change', () => {
+            subscriptionEnabled.set(subscription.name, checkbox.checked);
             renderSubscriptionPanel();
             renderModelLegend();
             renderViews();
           });
-          const vendorName = document.createElement('span');
-          vendorName.textContent = vendor;
-          vendorLabel.append(vendorCheckbox, vendorName);
-          group.append(vendorLabel);
-
-          const planList = document.createElement('div');
-          planList.className = 'vendor-plans';
-          plans.sort((left, right) => Number(left.monthlyUSD) - Number(right.monthlyUSD) ||
-            text(left.name).localeCompare(text(right.name))).forEach((subscription) => {
-            const label = document.createElement('label');
-            label.className = 'sub-option';
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = subscriptionEnabled.get(subscription.name) !== false;
-            checkbox.addEventListener('change', () => {
-              subscriptionEnabled.set(subscription.name, checkbox.checked);
-              renderSubscriptionPanel();
-              renderModelLegend();
-              renderViews();
-            });
-            const content = document.createElement('span');
-            content.className = 'sub-option-text';
-            const name = document.createElement('span');
-            name.className = 'sub-option-name';
-            name.textContent = text(subscription.name);
-            const monthly = document.createElement('span');
-            monthly.className = 'sub-option-meta money';
-            monthly.textContent = t('monthlyPrice', formatUSD(subscription.monthlyUSD));
-            content.append(name, monthly);
-            label.append(checkbox, content);
-            planList.append(label);
-          });
-          group.append(planList);
-          list.append(group);
+          const content = document.createElement('span');
+          content.className = 'sub-option-text';
+          const name = document.createElement('span');
+          name.className = 'sub-option-name';
+          name.textContent = text(subscription.name);
+          const monthly = document.createElement('span');
+          monthly.className = 'sub-option-meta money';
+          monthly.textContent = t('monthlyPrice', formatUSD(subscription.monthlyUSD));
+          content.append(name, monthly);
+          label.append(checkbox, content);
+          list.append(label);
         });
       }
       function renderDefinitions() {

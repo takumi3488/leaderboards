@@ -28,19 +28,22 @@ func parseRealPricing(data []byte) (pricingData, error) {
 }
 
 func usableSubscriptionPoint(point pricingPoint) bool {
-	plan := point.Plan
-	if point.PlanEN != nil && strings.TrimSpace(*point.PlanEN) != "" {
-		plan = *point.PlanEN
-	}
-	return point.Billing == "subscription" && !point.Unmetered &&
-		strings.TrimSpace(plan) != "" && strings.TrimSpace(point.Vendor) != "" && strings.TrimSpace(point.Model) != "" &&
+	return point.Billing == "subscription" && !point.Unmetered && !excludedPlanScenario(point) &&
+		strings.TrimSpace(displayPlan(point)) != "" && strings.TrimSpace(point.Model) != "" &&
 		monthlyPrice(point.PriceUSD) && positiveFinite(point.RealUSDPerMTok) &&
 		(point.Confidence == "high" || point.Confidence == "medium" || point.Confidence == "low")
+}
+
+// Scenario-priced rows are not comparable with ordinary monthly plan rates.
+func excludedPlanScenario(point pricingPoint) bool {
+	name := strings.TrimSpace(point.Plan)
+	return strings.HasSuffix(name, "忙时") || strings.HasSuffix(name, "闲时") || strings.Contains(name, "夜间")
 }
 
 func positiveFinite(value float64) bool {
 	return value > 0 && !math.IsInf(value, 0) && !math.IsNaN(value)
 }
+
 func monthlyPrice(value float64) bool {
 	return value >= 0 && !math.IsInf(value, 0) && !math.IsNaN(value)
 }
@@ -59,7 +62,10 @@ func apiPrices(points []pricingPoint) map[string]float64 {
 			continue
 		}
 		key := canonicalModel(point.Model)
-		if key == "" || prices[key] == 0 || point.RealUSDPerMTok < prices[key] {
+		if key == "" {
+			continue
+		}
+		if prices[key] == 0 || point.RealUSDPerMTok < prices[key] {
 			prices[key] = point.RealUSDPerMTok
 		}
 	}
@@ -67,6 +73,18 @@ func apiPrices(points []pricingPoint) map[string]float64 {
 		key := canonicalModel(model)
 		if prices[key] == 0 {
 			prices[key] = price.blendedUSDPerMTok()
+		}
+	}
+	for _, point := range points {
+		if point.Vendor == "Anthropic" || !positiveFinite(point.ListBlendedUSDPerMTok) {
+			continue
+		}
+		key := canonicalModel(point.Model)
+		if key == "" {
+			continue
+		}
+		if prices[key] == 0 {
+			prices[key] = point.ListBlendedUSDPerMTok
 		}
 	}
 	return prices
@@ -108,7 +126,6 @@ func canonicalModel(model string) string {
 type planRate struct {
 	usdPerMTok float64
 	confidence string
-	vendor     string
 	monthlyUSD float64
 }
 
@@ -116,7 +133,6 @@ type planRate struct {
 func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscription {
 	api := apiPrices(points)
 	rates := make(map[string]map[string]planRate)
-	planInfo := make(map[planIdentity]subscription)
 	for _, point := range points {
 		if !usableSubscriptionPoint(point) {
 			continue
@@ -131,11 +147,11 @@ func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscri
 		}
 		current, exists := rates[name][model]
 		if !exists || point.RealUSDPerMTok < current.usdPerMTok {
-			rates[name][model] = planRate{point.RealUSDPerMTok, point.Confidence, point.Vendor, point.PriceUSD}
+			rates[name][model] = planRate{point.RealUSDPerMTok, point.Confidence, point.PriceUSD}
 		}
 	}
 
-	used := make(map[planIdentity]bool)
+	planInfo := make(map[string]subscription)
 	for i := range benchmarks {
 		for j := range benchmarks[i].Points {
 			point := &benchmarks[i].Points[j]
@@ -157,9 +173,9 @@ func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscri
 				point.Offers = append(point.Offers, offer{
 					Plan: name, Cost: cost, USDPerMTok: rate.usdPerMTok, Confidence: rate.confidence,
 				})
-				identity := planIdentity{name, rate.vendor}
-				planInfo[identity] = subscription{Name: name, Vendor: rate.vendor, MonthlyUSD: rate.monthlyUSD}
-				used[identity] = true
+				if _, exists := planInfo[name]; !exists {
+					planInfo[name] = subscription{Name: name, MonthlyUSD: rate.monthlyUSD}
+				}
 			}
 			sort.Slice(point.Offers, func(i, j int) bool {
 				if point.Offers[i].Cost == point.Offers[j].Cost {
@@ -169,23 +185,15 @@ func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscri
 			})
 		}
 	}
-	plans := make([]subscription, 0, len(used))
-	for identity := range used {
-		plans = append(plans, planInfo[identity])
+	plans := make([]subscription, 0, len(planInfo))
+	for _, plan := range planInfo {
+		plans = append(plans, plan)
 	}
 	sort.Slice(plans, func(i, j int) bool {
-		if plans[i].Vendor != plans[j].Vendor {
-			return plans[i].Vendor < plans[j].Vendor
-		}
 		if plans[i].MonthlyUSD != plans[j].MonthlyUSD {
 			return plans[i].MonthlyUSD < plans[j].MonthlyUSD
 		}
 		return plans[i].Name < plans[j].Name
 	})
 	return plans
-}
-
-type planIdentity struct {
-	name   string
-	vendor string
 }

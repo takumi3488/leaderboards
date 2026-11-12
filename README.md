@@ -20,7 +20,7 @@ open leaderboard.html
 - 出力先や取得 URL は変更可能。`go run . fetch -h` / `go run . build -h` 参照。
 
 ```sh
-go run . fetch -data-dir snapshots -pricing-url https://example.test/points.json
+go run . fetch -data-dir snapshots
 go run . build -data-dir snapshots -output comparison.html
 ```
 
@@ -36,7 +36,7 @@ deploy せず、前回公開版を維持する。原本はリポジトリにコ�
 
 - Terminal-Bench / FrontierCode、API / サブスク、対数 / 線形軸を切り替え。
 - 画面は英語が既定。URL に `?la=ja` を付けると日本語表示。日時は英語で UTC、日本語で JST 表示。
-- プランをベンダー別に表示し、個別またはベンダー単位で ON/OFF。初期状態は全 ON。同じモデルの有効プランから最安の換算額を採用。
+- プランは料金の安い順で表示し、各プランを個別に ON/OFF。同じモデルに有効なプランが複数あれば換算額が最安のものを採用する。初期状態は全 ON。
 - サブスク換算で有効プランに一致しないモデルは初期状態で非選択。手動選択時は API 料金で表示。
 - モデル照合は正規化後の完全一致。大文字小文字、区切り文字、プロバイダ接頭辞と Claude の表示名だけを正規化し、別バージョン等は推定しない。
 
@@ -45,7 +45,7 @@ Terminal-Bench: トークン数 / rollout × プラン実質 $/MTok
 FrontierCode: API rollout 料金 × プラン実質 $/MTok ÷ モデル API $/MTok
 ```
 
-Terminal-Bench のトークン数は `total_tokens / n_trials`。FrontierCode は出力トークンだけを報告するため API 料金比で換算する。実質 $/MTok は Fei2411/real-api-pricing の値を使い、月間枠を使い切る前提で、キャッシュ読み取り 97%・新規入力 2.5%・出力 0.5% の標準 workload を想定する。ソースに API 実測値がないモデルだけ、公式 API 価格から計算した値を `api_prices.go` に記載する。両方に値がある場合はソースの実測値を優先する。
+Terminal-Bench のトークン数は `total_tokens / n_trials`。FrontierCode は出力トークンだけを報告するため API 料金比で換算する。プランの `real_usd_per_mtok` は各行の `workload`（`standard` / `anthropic` / `low-cache` / `measured` raw samples）に従い、一律の混合率は適用しない。`metered` 行は「API list price (metered row)」で、実使用量の実測値ではない。API 参照価格は metered 行、`api_prices.go` の公式価格、非 Anthropic 行の `list_blended_usd_per_mtok` の順で補う。Claude の list blend は cache-write rate を含まないためフォールバックに使わない。手動 API 価格は公式価格の短コンテキスト tier を 97% cache read / 2.5% fresh input / 0.5% output で換算し、Claude fresh input は5分 cache write 価格を使う。
 
 実質価格は元データに基づく推計で、プラン容量や今後の提供を保証しない。共有枠、モデル構成、利用期間により実際の値は異なる。
 
