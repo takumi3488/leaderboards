@@ -32,6 +32,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		flags.StringVar(&opts.DataDir, "data-dir", "data", "directory for original downloaded sources")
 		flags.StringVar(&opts.TerminalURL, "terminal-url", defaultTerminalURL, "Terminal-Bench leaderboard page URL")
 		flags.StringVar(&opts.FrontierURL, "frontier-url", defaultFrontierURL, "FrontierCode JSON URL")
+		flags.StringVar(&opts.ScienceURL, "science-url", defaultScienceURL, "Terminal-Bench Science JSON URL")
 		flags.StringVar(&opts.PricingURL, "pricing-url", defaultPricingURL, "real-api-pricing JSON URL")
 		if err := parseFlags(flags, args[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,15 +20,18 @@ import (
 )
 
 const (
-	terminalHTMLFile        = "terminal-bench.html"
-	terminalActionFile      = "terminal-bench-action.js"
-	terminalRSCFile         = "terminal-bench.rsc"
-	frontierJSONFile        = "frontiercode.json"
-	realPricingJSONFile     = "real-api-pricing.json"
-	sourcesMetadataFile     = "sources.json"
-	frontierCodePageURL     = "https://cognition.com/frontiercode"
-	terminalBenchmarkID     = "terminal-bench"
-	frontierCodeBenchmarkID = "frontier-code"
+	terminalHTMLFile           = "terminal-bench.html"
+	terminalActionFile         = "terminal-bench-action.js"
+	terminalRSCFile            = "terminal-bench.rsc"
+	frontierJSONFile           = "frontiercode.json"
+	terminalScienceJSONFile    = "terminal-bench-science.json"
+	realPricingJSONFile        = "real-api-pricing.json"
+	sourcesMetadataFile        = "sources.json"
+	frontierCodePageURL        = "https://cognition.com/frontiercode"
+	terminalSciencePageURL     = "https://www.terminal-bench-science.ai/"
+	terminalBenchmarkID        = "terminal-bench"
+	frontierCodeBenchmarkID    = "frontier-code"
+	terminalScienceBenchmarkID = "terminal-bench-science"
 )
 
 var (
@@ -56,6 +60,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 	terminalURL := opts.TerminalURL
 	frontierURL := opts.FrontierURL
 	pricingURL := opts.PricingURL
+	scienceURL := opts.ScienceURL
 	requestedLeaderboard, err := requestedLeaderboardName(terminalURL)
 	if err != nil {
 		return err
@@ -102,6 +107,13 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 	if _, err := parseFrontierCode(frontier.body, frontierCodePageURL); err != nil {
 		return fmt.Errorf("parse downloaded FrontierCode data: %w", err)
 	}
+	science, err := fetchDocument(ctx, client, http.MethodGet, scienceURL, nil, nil)
+	if err != nil {
+		return fmt.Errorf("fetch Terminal-Bench Science data: %w", err)
+	}
+	if _, err := parseTerminalBenchScience(science.body, terminalSciencePageURL); err != nil {
+		return fmt.Errorf("parse downloaded Terminal-Bench Science data: %w", err)
+	}
 	pricing, err := fetchDocument(ctx, client, http.MethodGet, pricingURL, nil, nil)
 	if err != nil {
 		return fmt.Errorf("fetch real-api-pricing data: %w", err)
@@ -116,6 +128,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 		{Name: "Terminal-Bench leaderboard response", URL: rsc.url, File: terminalRSCFile, FetchedAt: rsc.fetchedAt},
 		{Name: "FrontierCode data", URL: frontier.url, File: frontierJSONFile, FetchedAt: frontier.fetchedAt},
 		{Name: "Real API pricing data", URL: pricing.url, File: realPricingJSONFile, FetchedAt: pricing.fetchedAt},
+		{Name: "Terminal-Bench Science data", URL: science.url, File: terminalScienceJSONFile, FetchedAt: science.fetchedAt},
 	}
 	if err := os.MkdirAll(opts.DataDir, 0o755); err != nil {
 		return fmt.Errorf("create data directory: %w", err)
@@ -128,6 +141,7 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 		{terminalActionFile, actionBody},
 		{terminalRSCFile, rsc.body},
 		{frontierJSONFile, frontier.body},
+		{terminalScienceJSONFile, science.body},
 		{realPricingJSONFile, pricing.body},
 	}
 	for _, file := range files {
@@ -521,7 +535,85 @@ func parseFrontierCode(data []byte, sourceURL string) (benchmark, error) {
 	}, nil
 }
 
+type terminalSciencePayload struct {
+	Rows []terminalScienceRow `json:"rows"`
+}
+
+type terminalScienceRow struct {
+	ID       string                 `json:"id"`
+	Metadata terminalActionMetadata `json:"metadata"`
+	Metrics  terminalScienceMetrics `json:"metrics"`
+}
+
+type terminalScienceMetrics struct {
+	Accuracy     *float64 `json:"accuracy"`
+	TotalCostUSD *float64 `json:"total_cost_usd"`
+	TotalTokens  *float64 `json:"total_tokens"`
+	Tasks        *int64   `json:"tasks"`
+}
+
+func parseTerminalBenchScience(data []byte, sourceURL string) (benchmark, error) {
+	var payload terminalSciencePayload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return benchmark{}, fmt.Errorf("decode Terminal-Bench Science JSON: %w", err)
+	}
+	if len(payload.Rows) == 0 {
+		return benchmark{}, errors.New("Terminal-Bench Science response contains no rows")
+	}
+	points := make([]point, 0, len(payload.Rows))
+	for index, row := range payload.Rows {
+		if row.Metadata.ModelDisplay == nil || strings.TrimSpace(row.Metadata.ModelDisplay.Label) == "" {
+			return benchmark{}, fmt.Errorf("row %d has no model_display.label", index)
+		}
+		if row.Metadata.AgentDisplay == nil || strings.TrimSpace(row.Metadata.AgentDisplay.Label) == "" {
+			return benchmark{}, fmt.Errorf("row %d has no agent_display.label", index)
+		}
+		if row.Metrics.Accuracy == nil {
+			return benchmark{}, fmt.Errorf("row %d has no accuracy", index)
+		}
+		if math.IsNaN(*row.Metrics.Accuracy) || math.IsInf(*row.Metrics.Accuracy, 0) || *row.Metrics.Accuracy < 0 || *row.Metrics.Accuracy > 100 {
+			return benchmark{}, fmt.Errorf("row %d has invalid accuracy %g; expected a finite percentage in [0,100]", index, *row.Metrics.Accuracy)
+		}
+		if row.Metrics.TotalCostUSD == nil {
+			return benchmark{}, fmt.Errorf("row %d has no total_cost_usd", index)
+		}
+		if math.IsNaN(*row.Metrics.TotalCostUSD) || math.IsInf(*row.Metrics.TotalCostUSD, 0) || *row.Metrics.TotalCostUSD < 0 {
+			return benchmark{}, fmt.Errorf("row %d has invalid total_cost_usd %g; expected a finite non-negative value", index, *row.Metrics.TotalCostUSD)
+		}
+		if row.Metrics.TotalTokens == nil {
+			return benchmark{}, fmt.Errorf("row %d has no total_tokens", index)
+		}
+		if math.IsNaN(*row.Metrics.TotalTokens) || math.IsInf(*row.Metrics.TotalTokens, 0) || *row.Metrics.TotalTokens < 0 {
+			return benchmark{}, fmt.Errorf("row %d has invalid total_tokens %g; expected a finite non-negative value", index, *row.Metrics.TotalTokens)
+		}
+		if row.Metrics.Tasks == nil {
+			return benchmark{}, fmt.Errorf("row %d has no tasks", index)
+		}
+		if *row.Metrics.Tasks <= 0 {
+			return benchmark{}, fmt.Errorf("row %d has invalid tasks %d; expected a positive integer", index, *row.Metrics.Tasks)
+		}
+		points = append(points, point{
+			ID:      row.ID,
+			Model:   row.Metadata.ModelDisplay.Label,
+			Agent:   row.Metadata.AgentDisplay.Label,
+			Effort:  row.Metadata.ReasoningEffort,
+			Score:   *row.Metrics.Accuracy,
+			APICost: *row.Metrics.TotalCostUSD / float64(*row.Metrics.Tasks),
+			Tokens:  *row.Metrics.TotalTokens / float64(*row.Metrics.Tasks),
+		})
+	}
+	return benchmark{
+		ID:         terminalScienceBenchmarkID,
+		Title:      "Terminal-Bench Science 0.1",
+		URL:        sourceURL,
+		ScoreLabel: "Resolution rate (%)",
+		CostNote:   "API cost per trial",
+		Points:     points,
+	}, nil
+}
+
 func loadBenchmarks(dataDir string) ([]benchmark, []source, error) {
+
 	readData := func(name string) ([]byte, error) {
 		path := filepath.Join(dataDir, name)
 		data, err := os.ReadFile(path)
@@ -538,6 +630,10 @@ func loadBenchmarks(dataDir string) ([]benchmark, []source, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	scienceData, err := readData(terminalScienceJSONFile)
+	if err != nil {
+		return nil, nil, err
+	}
 	metadata, err := readData(sourcesMetadataFile)
 	if err != nil {
 		return nil, nil, err
@@ -550,6 +646,9 @@ func loadBenchmarks(dataDir string) ([]benchmark, []source, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("%s has no entry for %s", sourcesMetadataFile, terminalHTMLFile)
 	}
+	if _, ok := sourceURLForFile(sources, terminalScienceJSONFile); !ok {
+		return nil, nil, fmt.Errorf("%s has no entry for %s", sourcesMetadataFile, terminalScienceJSONFile)
+	}
 	terminal, err := parseTerminalBenchmark(terminalResponse, terminalURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse %s: %w", terminalRSCFile, err)
@@ -558,7 +657,11 @@ func loadBenchmarks(dataDir string) ([]benchmark, []source, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse %s: %w", frontierJSONFile, err)
 	}
-	return []benchmark{terminal, frontier}, sources, nil
+	science, err := parseTerminalBenchScience(scienceData, terminalSciencePageURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse %s: %w", terminalScienceJSONFile, err)
+	}
+	return []benchmark{terminal, frontier, science}, sources, nil
 }
 
 func sourceURLForFile(sources []source, file string) (string, bool) {

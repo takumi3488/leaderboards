@@ -253,8 +253,8 @@
       <section class="methodology" aria-labelledby="methodology-heading">
         <h2 id="methodology-heading" data-i18n="methodologyHeading">How to read this report</h2>
         <p id="benchmark-definition"></p>
-        <p data-i18n="subscriptionMethodology">Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row's workload (standard, anthropic, low-cache, or measured raw samples); metered rows are "API list price (metered row)", not API usage measurements. Hand-maintained API prices use official price lists.</p>
-        <p data-i18n="scoreMethodology">Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench costs are per trial.</p>
+        <p data-i18n="subscriptionMethodology">Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench and Terminal-Bench Science, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row's workload (standard, anthropic, low-cache, or measured raw samples); metered rows are "API list price (metered row)", not API usage measurements. Hand-maintained API prices use official price lists.</p>
+        <p data-i18n="scoreMethodology">Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench and Terminal-Bench Science costs are per trial.</p>
         <p id="benchmark-link-row"></p>
       </section>
 
@@ -306,8 +306,8 @@
           displayUsdColumn: 'Display USD',
           costBasisColumn: 'Cost basis',
           methodologyHeading: 'How to read this report',
-          subscriptionMethodology: 'Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row’s workload (standard, anthropic, low-cache, or measured raw samples); metered rows are “API list price (metered row)”, not API usage measurements. Hand-maintained API prices use official price lists.',
-          scoreMethodology: 'Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench costs are per trial.',
+          subscriptionMethodology: 'Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench and Terminal-Bench Science, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row’s workload (standard, anthropic, low-cache, or measured raw samples); metered rows are “API list price (metered row)”, not API usage measurements. Hand-maintained API prices use official price lists.',
+          scoreMethodology: 'Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench and Terminal-Bench Science costs are per trial.',
           sourcesHeading: 'Data sources',
           unrecorded: 'Not recorded',
           unavailable: '—',
@@ -376,8 +376,8 @@
           displayUsdColumn: '表示 USD',
           costBasisColumn: 'コスト基準',
           methodologyHeading: '読み方と方法',
-          subscriptionMethodology: 'サブスク換算は、Terminal-Bench では rollout あたりのトークン数 × プラン実質 $/MTok、出力トークンのみの FrontierCode では API 費用 × プラン実質 $/MTok ÷ モデル API $/MTok です。real-api-pricing のプラン価格は各行の workload（standard / anthropic / low-cache / measured raw samples）に従います。metered 行は「API list price (metered row)」で、API 使用量の実測値ではありません。手動価格は公式価格表に基づきます。',
-          scoreMethodology: 'スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。Terminal-Bench の費用は1試行あたりです。',
+          subscriptionMethodology: 'サブスク換算は、Terminal-Bench と Terminal-Bench Science では rollout あたりのトークン数 × プラン実質 $/MTok、出力トークンのみの FrontierCode では API 費用 × プラン実質 $/MTok ÷ モデル API $/MTok です。real-api-pricing のプラン価格は各行の workload（standard / anthropic / low-cache / measured raw samples）に従います。metered 行は「API list price (metered row)」で、API 使用量の実測値ではありません。手動価格は公式価格表に基づきます。',
+          scoreMethodology: 'スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。Terminal-Bench と Terminal-Bench Science の費用は1試行あたりです。',
           sourcesHeading: 'データソース',
           unrecorded: '未記録',
           noBenchmark: (number) => `ベンチマーク ${number}`,
