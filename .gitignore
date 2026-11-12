@@ -24,3 +24,8 @@ vendor/
 # OS
 .DS_Store
 Thumbs.db
+
+# Downloaded sources and generated report
+/data/
+/leaderboard.html
+/screenshots/
