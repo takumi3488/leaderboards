@@ -466,14 +466,15 @@
           list.append(empty);
           return;
         }
-        const models = [...new Set(benchmark.points.map((point) => text(point.model)))].sort((a, b) => a.localeCompare(b));
-        models.forEach((model) => {
-          const key = `${benchmark.id}\u0000${model}`;
+        const models = new Map();
+        benchmark.points.forEach((point) => { if (!models.has(text(point.model))) models.set(text(point.model), modelKey(point)); });
+        [...models.keys()].sort((a, b) => a.localeCompare(b)).forEach((model) => {
+          const key = models.get(model);
           const label = document.createElement('label');
           label.className = 'model-option';
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          checkbox.checked = isModelEnabled(benchmark, model);
+          checkbox.checked = isModelEnabled(benchmark, key);
           checkbox.addEventListener('change', () => {
             modelEnabled.set(key, checkbox.checked);
             renderViews();
@@ -487,11 +488,13 @@
           list.append(label);
         });
       }
+      // Explicit choices are keyed by canonical model, so they carry across benchmarks.
+      function modelKey(point) { return text(point.modelKey); }
       // In subscription mode, models without an enabled plan start unchecked.
-      function isModelEnabled(benchmark, model) {
-        const choice = modelEnabled.get(`${benchmark.id}\u0000${model}`);
+      function isModelEnabled(benchmark, key) {
+        const choice = modelEnabled.get(key);
         if (choice !== undefined) return choice;
-        return mode !== 'subscription' || benchmark.points.some((point) => text(point.model) === model && chosenOffer(point) !== null);
+        return mode !== 'subscription' || benchmark.points.some((point) => modelKey(point) === key && chosenOffer(point) !== null);
       }
       function chosenOffer(point) {
         if (mode !== 'subscription') return null;
@@ -505,7 +508,7 @@
       function rowsForBenchmark() {
         const benchmark = activeBenchmark();
         if (!benchmark || !benchmark.points) return [];
-        return benchmark.points.filter((point) => isModelEnabled(benchmark, text(point.model))).map((point) => {
+        return benchmark.points.filter((point) => isModelEnabled(benchmark, modelKey(point))).map((point) => {
           const offer = chosenOffer(point);
           const matched = offer !== null;
           return {
