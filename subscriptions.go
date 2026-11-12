@@ -279,7 +279,7 @@ func canonicalModel(model string) string {
 	return key
 }
 
-// applySubscriptions annotates each benchmark point with its exact-model offers.
+// applySubscriptions sets each point's ModelKey and its exact-model offers.
 func applySubscriptions(benchmarks []benchmark, subscriptions []subscription) {
 	type planRate struct {
 		name   string
@@ -301,8 +301,9 @@ func applySubscriptions(benchmarks []benchmark, subscriptions []subscription) {
 	for i := range benchmarks {
 		for j := range benchmarks[i].Points {
 			p := &benchmarks[i].Points[j]
+			p.ModelKey = canonicalModel(p.Model)
 			p.Offers = nil
-			for _, rate := range rates[canonicalModel(p.Model)] {
+			for _, rate := range rates[p.ModelKey] {
 				p.Offers = append(p.Offers, offer{Plan: rate.name, Cost: p.APICost * rate.factor})
 			}
 			sort.Slice(p.Offers, func(i, j int) bool {
