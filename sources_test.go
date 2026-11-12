@@ -41,6 +41,9 @@ func TestParseCapturedBenchmarkSources(t *testing.T) {
 	frontierOpus := findPoint(t, frontier.Points, "Claude Opus 5.5", "low")
 	assertNear(t, frontierOpus.Score, 14.72, 0.000001)
 	assertNear(t, frontierOpus.APICost, 0.746, 0.000001)
+	if frontierOpus.Tokens != nil {
+		t.Errorf("FrontierCode tokens = %v, want nil when unreported", *frontierOpus.Tokens)
+	}
 	findPointByModel(t, frontier.Points, "Claude Opus 4.8")
 }
 
@@ -74,8 +77,15 @@ func TestTerminalBenchmarkSkipsNonDisplayRowsAndAllowsZeroCost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(parsed.Points) != 1 || parsed.Points[0].ID != "free" || parsed.Points[0].Score != 12.5 || parsed.Points[0].APICost != 0 || parsed.Points[0].Tokens != 500 {
+	if len(parsed.Points) != 1 || parsed.Points[0].ID != "free" || parsed.Points[0].Score != 12.5 || parsed.Points[0].APICost != 0 || parsed.Points[0].Tokens == nil || *parsed.Points[0].Tokens != 500 {
 		t.Fatalf("unexpected parsed visible row: %+v", parsed.Points)
+	}
+	missingTokens, err := parseTerminalBenchmark(syntheticTerminalResponse(`{"accuracy":1,"total_cost_usd":0,"n_trials":1}`), "https://example.test/terminal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missingTokens.Points[0].Tokens != nil {
+		t.Fatalf("missing optional tokens = %v, want nil", *missingTokens.Points[0].Tokens)
 	}
 }
 
@@ -117,7 +127,10 @@ func TestParseTerminalBenchScienceRolloutAverages(t *testing.T) {
 		t.Fatalf("score = %v, want unchanged upstream accuracy", point.Score)
 	}
 	assertNear(t, point.APICost, 4997.461181/210, 1e-12)
-	assertNear(t, point.Tokens, 2288326796.0/210, 1e-9)
+	if point.Tokens == nil {
+		t.Fatal("Science tokens are missing despite required total_tokens")
+	}
+	assertNear(t, *point.Tokens, 2288326796.0/210, 1e-9)
 }
 
 func TestParseTerminalBenchScienceAllowsLegitimateZeros(t *testing.T) {
@@ -126,7 +139,7 @@ func TestParseTerminalBenchScienceAllowsLegitimateZeros(t *testing.T) {
 		t.Fatal(err)
 	}
 	point := parsed.Points[0]
-	if point.Score != 0 || point.APICost != 0 || point.Tokens != 0 {
+	if point.Score != 0 || point.APICost != 0 || point.Tokens == nil || *point.Tokens != 0 {
 		t.Fatalf("zero metrics were not preserved: %+v", point)
 	}
 }

@@ -162,9 +162,9 @@ func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscri
 				if !matches {
 					continue
 				}
-				cost := 0.0
-				if point.Tokens > 0 {
-					cost = point.Tokens / 1_000_000 * rate.usdPerMTok
+				var cost float64
+				if point.Tokens != nil {
+					cost = *point.Tokens / 1_000_000 * rate.usdPerMTok
 				} else if apiRate := api[point.ModelKey]; apiRate > 0 {
 					cost = point.APICost * rate.usdPerMTok / apiRate
 				} else {

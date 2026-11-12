@@ -7,8 +7,9 @@ import (
 
 func TestApplySubscriptionsUsesTokensAndMeteredRatios(t *testing.T) {
 	pricing := readPricingFixture(t)
+	tokens := 500_000.0
 	benchmarks := []benchmark{{Points: []point{
-		{Model: "GPT-6 Astra", Tokens: 500_000, APICost: 99},
+		{Model: "GPT-6 Astra", Tokens: &tokens, APICost: 99},
 		{Model: "gpt-5.6-sol", APICost: 1.176},
 	}}}
 	plans := applySubscriptions(benchmarks, pricing.Points)
@@ -31,6 +32,40 @@ func TestApplySubscriptionsUsesTokensAndMeteredRatios(t *testing.T) {
 	}
 	if got, want := []string{plans[0].Name, plans[1].Name, plans[2].Name}, []string{"Astra Plan", "Measured English Plan", "Premium Plan"}; !equalStrings(got, want) {
 		t.Errorf("unique plans sorted by monthly price and name = %v, want %v", got, want)
+	}
+}
+
+func TestScienceZeroTokensKeepSubscriptionOffers(t *testing.T) {
+	pricing := readPricingFixture(t)
+	cases := []struct {
+		name    string
+		model   string
+		metrics string
+		plan    string
+	}{
+		{"model without API price", "model-without-api-price", `{"accuracy":0,"total_cost_usd":0,"total_tokens":0,"tasks":1}`, "No API Plan"},
+		{"API cost cannot override zero tokens", "GPT-6 Astra", `{"accuracy":0,"total_cost_usd":1,"total_tokens":0,"tasks":1}`, "Astra Plan"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			response := []byte(`{"rows":[{"metadata":{"model_display":{"label":"` + test.model + `"},"agent_display":{"label":"Codex"},"reasoning_effort":"max"},"metrics":` + test.metrics + `}]}`)
+			parsed, err := parseTerminalBenchScience(response, terminalSciencePageURL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if parsed.Points[0].Tokens == nil || *parsed.Points[0].Tokens != 0 {
+				t.Fatalf("parsed tokens = %v, want measured zero", parsed.Points[0].Tokens)
+			}
+			benchmarks := []benchmark{parsed}
+			applySubscriptions(benchmarks, pricing.Points)
+			for _, offer := range benchmarks[0].Points[0].Offers {
+				if offer.Plan == test.plan {
+					assertNear(t, offer.Cost, 0, 0)
+					return
+				}
+			}
+			t.Fatalf("matching plan %q missing from offers: %+v", test.plan, benchmarks[0].Points[0].Offers)
+		})
 	}
 }
 
@@ -77,9 +112,10 @@ func TestScenarioPlanRowsAreSkipped(t *testing.T) {
 		{Billing: base.Billing, Plan: "MiMo Token Plan Lite 日间", PlanEN: new("MiMo Token Plan Lite (Day)"), Vendor: "Xiaomi", Model: "mimo-v2.6-pro", PriceUSD: base.PriceUSD, RealUSDPerMTok: 0.5, Confidence: base.Confidence},
 	}
 	pricing.Points = append(pricing.Points, rows...)
+	tokens := 1_000_000.0
 	benchmarks := []benchmark{{Points: []point{
-		{Model: "gpt-6-astra", Tokens: 1_000_000},
-		{Model: "mimo-v2.6-pro", Tokens: 1_000_000},
+		{Model: "gpt-6-astra", Tokens: &tokens},
+		{Model: "mimo-v2.6-pro", Tokens: &tokens},
 	}}}
 	applySubscriptions(benchmarks, pricing.Points)
 	if got, want := offerPlanNames(benchmarks[0].Points[0].Offers), []string{"GLM Pro 中间值", "Astra Plan", "Premium Plan"}; !equalStrings(got, want) {
@@ -98,7 +134,8 @@ func TestParseRealPricingValidationAndSkippedRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	benchmarks := []benchmark{{Points: []point{{Model: "gpt-6-astra", Tokens: 1_000_000}}}}
+	tokens := 1_000_000.0
+	benchmarks := []benchmark{{Points: []point{{Model: "gpt-6-astra", Tokens: &tokens}}}}
 	applySubscriptions(benchmarks, pricing.Points)
 	if got, want := offerPlanNames(benchmarks[0].Points[0].Offers), []string{"Astra Plan", "Premium Plan"}; !equalStrings(got, want) {
 		t.Fatalf("unmetered/invalid rows were not skipped: offers=%v", got)

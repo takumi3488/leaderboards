@@ -50,6 +50,8 @@ Terminal-Bench のトークン数は `total_tokens / n_trials`。FrontierCode �
 
 Terminal-Bench Science は `total_tokens / tasks` で1試行あたりのトークン数を求める。公開 JSON の `tasks` は全試行数（0.1 は70問 × 3回 = 210）であり、追加で3分の1にしない。
 
+報告された0トークンは未報告と区別し、対応プランの換算額を0のまま保持する。API 料金比を使うのはトークン数未報告時だけ。
+
 実質価格は元データに基づく推計で、プラン容量や今後の提供を保証しない。共有枠、モデル構成、利用期間により実際の値は異なる。
 
 - Terminal-Bench: `total_cost_usd / n_trials`。スコアは `accuracy`。

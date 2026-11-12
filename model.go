@@ -6,13 +6,13 @@ type point struct {
 	Model string `json:"model"`
 	Agent string `json:"agent"`
 	// ModelKey is canonicalModel(Model); the page shares model selection across benchmarks by it.
-	ModelKey string  `json:"modelKey"`
-	Effort   string  `json:"effort"`
-	Score    float64 `json:"score"`
-	APICost  float64 `json:"apiCost"`
-	Tokens   float64 `json:"tokens,omitempty"`
-	Color    string  `json:"color,omitempty"`
-	Offers   []offer `json:"offers"`
+	ModelKey string   `json:"modelKey"`
+	Effort   string   `json:"effort"`
+	Score    float64  `json:"score"`
+	APICost  float64  `json:"apiCost"`
+	Tokens   *float64 `json:"tokens,omitempty"`
+	Color    string   `json:"color,omitempty"`
+	Offers   []offer  `json:"offers"`
 }
 
 type offer struct {

@@ -442,12 +442,12 @@ func parseTerminalBenchmark(response []byte, sourceURL string) (benchmark, error
 		if *row.Metrics.NTrials <= 0 {
 			return benchmark{}, fmt.Errorf("display row %d has invalid n_trials %d; expected a positive count", index, *row.Metrics.NTrials)
 		}
-		tokens := float64(0)
-		if row.Metrics.TotalTokens != nil {
-			if *row.Metrics.TotalTokens < 0 {
-				return benchmark{}, fmt.Errorf("display row %d has invalid total_tokens %g; expected a non-negative count", index, *row.Metrics.TotalTokens)
+		tokens := row.Metrics.TotalTokens
+		if tokens != nil {
+			if *tokens < 0 {
+				return benchmark{}, fmt.Errorf("display row %d has invalid total_tokens %g; expected a non-negative count", index, *tokens)
 			}
-			tokens = *row.Metrics.TotalTokens / float64(*row.Metrics.NTrials)
+			*tokens /= float64(*row.Metrics.NTrials)
 		}
 		points = append(points, point{
 			ID:      row.ID,
@@ -592,6 +592,7 @@ func parseTerminalBenchScience(data []byte, sourceURL string) (benchmark, error)
 		if *row.Metrics.Tasks <= 0 {
 			return benchmark{}, fmt.Errorf("row %d has invalid tasks %d; expected a positive integer", index, *row.Metrics.Tasks)
 		}
+		*row.Metrics.TotalTokens /= float64(*row.Metrics.Tasks)
 		points = append(points, point{
 			ID:      row.ID,
 			Model:   row.Metadata.ModelDisplay.Label,
@@ -599,7 +600,7 @@ func parseTerminalBenchScience(data []byte, sourceURL string) (benchmark, error)
 			Effort:  row.Metadata.ReasoningEffort,
 			Score:   *row.Metrics.Accuracy,
 			APICost: *row.Metrics.TotalCostUSD / float64(*row.Metrics.Tasks),
-			Tokens:  *row.Metrics.TotalTokens / float64(*row.Metrics.Tasks),
+			Tokens:  row.Metrics.TotalTokens,
 		})
 	}
 	return benchmark{
