@@ -24,18 +24,10 @@ func TestParseCapturedBenchmarkSources(t *testing.T) {
 	}
 	opus := findPoint(t, terminal.Points, "Opus 5.5", "max")
 	assertNear(t, opus.Score, 65.76, 0.000001)
-	if opus.ScoreCI == nil {
-		t.Fatal("Terminal-Bench confidence interval is missing")
-	}
-	assertNear(t, *opus.ScoreCI, 3.11, 0.000001)
-	if opus.Trials != 330 {
-		t.Fatalf("got %d trials, want 330", opus.Trials)
-	}
-	assertNear(t, opus.TotalAPICost, 4718.65, 0.000001)
 	assertNear(t, opus.APICost, 4718.65/330, 0.000001)
 	zeroCost := findPoint(t, terminal.Points, "Muse Spark 1.3", "xhigh")
-	if zeroCost.APICost != 0 || zeroCost.TotalAPICost != 0 {
-		t.Fatalf("zero API cost was not preserved: per-trial=%v total=%v", zeroCost.APICost, zeroCost.TotalAPICost)
+	if zeroCost.APICost != 0 {
+		t.Fatalf("zero API cost was not preserved: per-trial=%v", zeroCost.APICost)
 	}
 
 	frontierData, err := os.ReadFile(filepath.Join("testdata", frontierJSONFile))
@@ -59,7 +51,6 @@ func TestTerminalBenchmarkRejectsMissingAndZeroNumbers(t *testing.T) {
 		wantErr string
 	}{
 		{"missing accuracy", `{"accuracy_ci95_half_width":1,"total_cost_usd":0,"n_trials":2}`, "accuracy"},
-		{"null confidence interval", `{"accuracy":50,"accuracy_ci95_half_width":null,"total_cost_usd":0,"n_trials":2}`, "accuracy_ci95_half_width"},
 		{"missing total cost", `{"accuracy":50,"accuracy_ci95_half_width":1,"n_trials":2}`, "total_cost_usd"},
 		{"null trials", `{"accuracy":50,"accuracy_ci95_half_width":1,"total_cost_usd":0,"n_trials":null}`, "n_trials"},
 		{"zero trials", `{"accuracy":50,"accuracy_ci95_half_width":1,"total_cost_usd":0,"n_trials":0}`, "positive count"},
@@ -108,11 +99,15 @@ func TestFrontierCodeRequiresScoreAndCost(t *testing.T) {
 }
 
 func TestNextFlightLeaderboardAndServerActionDiscovery(t *testing.T) {
-	fragment, err := json.Marshal(`76:["$","$L79",null,{"leaderboards":[{"id":"leaderboard-uuid","name":"4-1-0","title":"Terminal Bench"}]}]`)
+	firstFragment, err := json.Marshal(`76:["$","$L79",null,{"leaderboards":[{"id":"leaderboard-uuid","name":"4-1-0","title":"Terminal `)
 	if err != nil {
 		t.Fatal(err)
 	}
-	html := []byte(`<script>self.__next_f.push([1,` + string(fragment) + `])</script>`)
+	secondFragment, err := json.Marshal(`Bench"}]}]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := []byte(`<script>self.__next_f.push([1,` + string(firstFragment) + `])</script><script>self.__next_f.push([1,` + string(secondFragment) + `])</script>`)
 	leaderboard, err := findLeaderboardReference(html, "4-1-0")
 	if err != nil {
 		t.Fatal(err)

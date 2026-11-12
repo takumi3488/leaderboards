@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -55,16 +54,11 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 		return errors.New("data directory is required")
 	}
 	terminalURL := opts.TerminalURL
-	if terminalURL == "" {
-		terminalURL = defaultTerminalURL
-	}
 	frontierURL := opts.FrontierURL
-	if frontierURL == "" {
-		frontierURL = defaultFrontierURL
-	}
 	subscriptionURL := opts.SubscriptionURL
-	if subscriptionURL == "" {
-		subscriptionURL = defaultSubscriptionURL
+	requestedLeaderboard, err := requestedLeaderboardName(terminalURL)
+	if err != nil {
+		return err
 	}
 
 	client := &http.Client{Timeout: 45 * time.Second}
@@ -75,10 +69,6 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 	pageRequestURL, err := url.Parse(page.url)
 	if err != nil {
 		return fmt.Errorf("parse fetched Terminal-Bench URL %q: %w", page.url, err)
-	}
-	requestedLeaderboard, err := requestedLeaderboardName(terminalURL)
-	if err != nil {
-		return err
 	}
 	leaderboard, err := findLeaderboardReference(page.body, requestedLeaderboard)
 	if err != nil {
@@ -115,6 +105,9 @@ func fetchSources(ctx context.Context, opts fetchOptions) error {
 	subscription, err := fetchDocument(ctx, client, http.MethodGet, subscriptionURL, nil, nil)
 	if err != nil {
 		return fmt.Errorf("fetch subscription Markdown: %w", err)
+	}
+	if _, _, err := parseSubscriptions(subscription.body); err != nil {
+		return fmt.Errorf("parse subscription Markdown: %w", err)
 	}
 
 	sources := []source{
@@ -196,20 +189,21 @@ func requestedLeaderboardName(rawURL string) (string, error) {
 }
 
 func findLeaderboardReference(html []byte, name string) (leaderboardReference, error) {
+	var joined strings.Builder
 	for _, match := range flightStringRE.FindAllSubmatch(html, -1) {
 		var flightText string
-		if err := json.Unmarshal(match[1], &flightText); err != nil {
+		if err := json.Unmarshal(match[1], &flightText); err == nil {
+			joined.WriteString(flightText)
+		}
+	}
+	for _, raw := range jsonArraysForKey(joined.String(), "leaderboards") {
+		var leaderboards []leaderboardReference
+		if err := json.Unmarshal(raw, &leaderboards); err != nil {
 			continue
 		}
-		for _, raw := range jsonArraysForKey(flightText, "leaderboards") {
-			var leaderboards []leaderboardReference
-			if err := json.Unmarshal(raw, &leaderboards); err != nil {
-				continue
-			}
-			for _, item := range leaderboards {
-				if item.Name == name && item.ID != "" {
-					return item, nil
-				}
+		for _, item := range leaderboards {
+			if item.Name == name && item.ID != "" {
+				return item, nil
 			}
 		}
 	}
@@ -307,57 +301,28 @@ func scriptURLsFromHTML(html []byte, pageURL *url.URL) []string {
 	return scripts
 }
 
-type actionBundleResult struct {
-	url       string
-	id        string
-	body      []byte
-	fetchedAt string
-	err       error
-}
-
 func fetchServerActionBundle(ctx context.Context, client *http.Client, html []byte, pageURL *url.URL) (string, string, []byte, string, error) {
 	scripts := scriptURLsFromHTML(html, pageURL)
 	if len(scripts) == 0 {
 		return "", "", nil, "", errors.New("Terminal-Bench page contains no JavaScript script references")
 	}
-	results := make([]actionBundleResult, len(scripts))
-	workers := 6
-	if workers > len(scripts) {
-		workers = len(scripts)
-	}
-	jobs := make(chan int)
-	var wg sync.WaitGroup
-	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for index := range jobs {
-				doc, err := fetchDocument(ctx, client, http.MethodGet, scripts[index], nil, nil)
-				if err != nil {
-					results[index] = actionBundleResult{err: err}
-					continue
-				}
-				id := serverActionID(doc.body)
-				if id != "" {
-					results[index] = actionBundleResult{url: doc.url, id: id, body: doc.body, fetchedAt: doc.fetchedAt}
-				}
+	var firstFetchError error
+	firstFailedScript := ""
+	for _, script := range scripts {
+		doc, err := fetchDocument(ctx, client, http.MethodGet, script, nil, nil)
+		if err != nil {
+			if firstFetchError == nil {
+				firstFailedScript = script
+				firstFetchError = err
 			}
-		}()
-	}
-	for index := range scripts {
-		jobs <- index
-	}
-	close(jobs)
-	wg.Wait()
-	for _, result := range results {
-		if result.id != "" {
-			return result.url, result.id, result.body, result.fetchedAt, nil
+			continue
+		}
+		if id := serverActionID(doc.body); id != "" {
+			return doc.url, id, doc.body, doc.fetchedAt, nil
 		}
 	}
-	for index, result := range results {
-		if result.err != nil {
-			return "", "", nil, "", fmt.Errorf("no fetchLeaderboardWithRows server action found; linked bundle %s failed: %w", scripts[index], result.err)
-		}
+	if firstFetchError != nil {
+		return "", "", nil, "", fmt.Errorf("no fetchLeaderboardWithRows server action found; linked bundle %s failed: %w", firstFailedScript, firstFetchError)
 	}
 	return "", "", nil, "", fmt.Errorf("no fetchLeaderboardWithRows server action found in %d linked JavaScript bundles", len(scripts))
 }
@@ -429,10 +394,9 @@ type terminalLabel struct {
 }
 
 type terminalActionMetrics struct {
-	Accuracy              *float64 `json:"accuracy"`
-	AccuracyCI95HalfWidth *float64 `json:"accuracy_ci95_half_width"`
-	TotalCostUSD          *float64 `json:"total_cost_usd"`
-	NTrials               *int64   `json:"n_trials"`
+	Accuracy     *float64 `json:"accuracy"`
+	TotalCostUSD *float64 `json:"total_cost_usd"`
+	NTrials      *int64   `json:"n_trials"`
 }
 
 func parseTerminalBenchmark(response []byte, sourceURL string) (benchmark, error) {
@@ -441,7 +405,6 @@ func parseTerminalBenchmark(response []byte, sourceURL string) (benchmark, error
 		return benchmark{}, err
 	}
 	points := make([]point, 0, len(leaderboard.Rows))
-	maxInt := int64(^uint(0) >> 1)
 	for index, row := range leaderboard.Rows {
 		if row.Status != "display" {
 			continue
@@ -455,9 +418,6 @@ func parseTerminalBenchmark(response []byte, sourceURL string) (benchmark, error
 		if row.Metrics.Accuracy == nil {
 			return benchmark{}, fmt.Errorf("display row %d has no accuracy", index)
 		}
-		if row.Metrics.AccuracyCI95HalfWidth == nil {
-			return benchmark{}, fmt.Errorf("display row %d has no accuracy_ci95_half_width", index)
-		}
 		if row.Metrics.TotalCostUSD == nil {
 			return benchmark{}, fmt.Errorf("display row %d has no total_cost_usd", index)
 		}
@@ -467,19 +427,13 @@ func parseTerminalBenchmark(response []byte, sourceURL string) (benchmark, error
 		if *row.Metrics.NTrials <= 0 {
 			return benchmark{}, fmt.Errorf("display row %d has invalid n_trials %d; expected a positive count", index, *row.Metrics.NTrials)
 		}
-		if *row.Metrics.NTrials > maxInt {
-			return benchmark{}, fmt.Errorf("display row %d n_trials exceeds supported range", index)
-		}
 		points = append(points, point{
-			ID:           row.ID,
-			Model:        row.Metadata.ModelDisplay.Label,
-			Agent:        row.Metadata.AgentDisplay.Label,
-			Effort:       row.Metadata.ReasoningEffort,
-			Score:        *row.Metrics.Accuracy,
-			ScoreCI:      row.Metrics.AccuracyCI95HalfWidth,
-			APICost:      *row.Metrics.TotalCostUSD / float64(*row.Metrics.NTrials),
-			Trials:       int(*row.Metrics.NTrials),
-			TotalAPICost: *row.Metrics.TotalCostUSD,
+			ID:      row.ID,
+			Model:   row.Metadata.ModelDisplay.Label,
+			Agent:   row.Metadata.AgentDisplay.Label,
+			Effort:  row.Metadata.ReasoningEffort,
+			Score:   *row.Metrics.Accuracy,
+			APICost: *row.Metrics.TotalCostUSD / float64(*row.Metrics.NTrials),
 		})
 	}
 	if len(points) == 0 {
@@ -587,10 +541,6 @@ func loadBenchmarks(dataDir string) ([]benchmark, []source, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("%s has no entry for %s", sourcesMetadataFile, terminalHTMLFile)
 	}
-	frontierSourceURL, ok := sourceURLForFile(sources, frontierJSONFile)
-	if !ok {
-		return nil, nil, fmt.Errorf("%s has no entry for %s", sourcesMetadataFile, frontierJSONFile)
-	}
 	terminal, err := parseTerminalBenchmark(terminalResponse, terminalURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse %s: %w", terminalRSCFile, err)
@@ -598,10 +548,6 @@ func loadBenchmarks(dataDir string) ([]benchmark, []source, error) {
 	frontier, err := parseFrontierCode(frontierData, frontierCodePageURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse %s: %w", frontierJSONFile, err)
-	}
-	frontier.URL = frontierCodePageURL
-	if frontierSourceURL == "" {
-		return nil, nil, fmt.Errorf("%s entry for %s has an empty URL", sourcesMetadataFile, frontierJSONFile)
 	}
 	return []benchmark{terminal, frontier}, sources, nil
 }

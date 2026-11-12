@@ -17,7 +17,7 @@ func TestApplySubscriptionsExactMatchingAndPricing(t *testing.T) {
 		t.Fatal(err)
 	}
 	benchmarks := []benchmark{{Points: []point{
-		{Model: "anthropic/CLAUDE_SONNET_4.6", APICost: 100, Trials: 20},
+		{Model: "anthropic/CLAUDE_SONNET_4.6", APICost: 100},
 		{Model: "Sonnet 5", APICost: 100},
 		{Model: "Opus 5.5", APICost: 100},
 		{Model: "openai/gpt.6_luna", APICost: 0},
@@ -81,7 +81,6 @@ func TestParseSubscriptionsRejectsInvalidOverviewAndDetails(t *testing.T) {
 		{"missing details block", strings.Replace(base, validDetailsBlock(), "", 1)},
 		{"unlinked details plan", strings.Replace(base, "Alpha - Long - per-model averages", "Other Plan - per-model averages", 1)},
 		{"missing model table", strings.Replace(base, "| Model | Periods |", "| Name | Periods |", 1)},
-		{"zero months", strings.Replace(base, "| Alpha - Long | 1 |", "| Alpha - Long | 0 |", 1)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -89,6 +88,22 @@ func TestParseSubscriptionsRejectsInvalidOverviewAndDetails(t *testing.T) {
 				t.Fatal("parseSubscriptions succeeded, want an error")
 			}
 		})
+	}
+}
+
+func TestParseSubscriptionDetailsStopsAtSecondTable(t *testing.T) {
+	data := strings.Replace(
+		validSubscriptionMarkdown(),
+		"\n</details>",
+		"\n\nPer period:\n\n| Period | Value |\n|---|---|\n| #14 | $1 |\n</details>",
+		1,
+	)
+	plans, _, err := parseSubscriptions([]byte(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := plans[0].Models, []string{"claude-opus-5"}; !equalStrings(got, want) {
+		t.Errorf("models = %v, want only %v", got, want)
 	}
 }
 
@@ -120,9 +135,9 @@ func validSubscriptionMarkdown() string {
 
 ## Subscription Performance Overview
 
-| Subscription | Months | Avg Cost (USD) | Avg API Value (USD) |
-|--------------|--------|----------------|---------------------|
-| Alpha - Long | 1 | $10.00 | $25.00 |
+| Subscription | Avg Cost (USD) | Avg API Value (USD) |
+|--------------|----------------|---------------------|
+| Alpha - Long | $10.00 | $25.00 |
 
 ` + validDetailsBlock()
 }

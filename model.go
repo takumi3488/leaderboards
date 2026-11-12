@@ -2,17 +2,14 @@ package main
 
 // Costs are USD per rollout; scores are percentages within each benchmark.
 type point struct {
-	ID           string   `json:"id"`
-	Model        string   `json:"model"`
-	Agent        string   `json:"agent"`
-	Effort       string   `json:"effort"`
-	Score        float64  `json:"score"`
-	ScoreCI      *float64 `json:"scoreCI,omitempty"`
-	APICost      float64  `json:"apiCost"`
-	Trials       int      `json:"trials,omitempty"`
-	TotalAPICost float64  `json:"totalApiCost,omitempty"`
-	Color        string   `json:"color,omitempty"`
-	Offers       []offer  `json:"offers"`
+	ID      string  `json:"id"`
+	Model   string  `json:"model"`
+	Agent   string  `json:"agent"`
+	Effort  string  `json:"effort"`
+	Score   float64 `json:"score"`
+	APICost float64 `json:"apiCost"`
+	Color   string  `json:"color,omitempty"`
+	Offers  []offer `json:"offers"`
 }
 
 type offer struct {
@@ -33,8 +30,7 @@ type subscription struct {
 	Name        string   `json:"name"`
 	MonthlyUSD  float64  `json:"monthlyUSD"`
 	APIValueUSD float64  `json:"apiValueUSD"`
-	Months      int      `json:"months"`
-	Models      []string `json:"models"`
+	Models      []string `json:"-"`
 }
 
 type source struct {

@@ -154,16 +154,12 @@
       .control select { width: 100%; }
       .choice-row { min-height: 32px; }
       .sub-heading-content { display: flex; }
-      .sub-list { grid-template-columns: 1fr; }
       .chart-panel { padding: 11px 8px 8px; }
       .chart-topline { align-items: start; }
       #chart { height: 430px; }
       .model-list { grid-template-columns: 1fr; }
       .table-intro { display: block; }
       .table-intro p { margin-top: 3px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { scroll-behavior: auto !important; }
     }
   </style>
 </head>
@@ -269,7 +265,7 @@
     </main>
   </div>
   <script type="application/json" id="report-data">{{.ReportJSON}}</script>
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js" integrity="sha384-pPi0zxBAoDu6+JXW/C68UZLvBUUtU+7zonhif43rqj7pxsGyqyqzcian2Rj37Rss" crossorigin="anonymous"></script>
   <script>
     (() => {
       'use strict';
@@ -327,7 +323,7 @@
         return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(value));
       }
       function formatFactor(value) {
-        return value == null || !Number.isFinite(value) ? '不明' : new Intl.NumberFormat('ja-JP', { maximumSignificantDigits: 4 }).format(value);
+        return new Intl.NumberFormat('ja-JP', { maximumSignificantDigits: 4 }).format(value);
       }
       function safeURL(value) {
         try {
@@ -381,13 +377,6 @@
         const list = $('subscription-list');
         list.replaceChildren();
         const subscriptions = REPORT.subscriptions || [];
-        if (!subscriptions.length) {
-          const empty = document.createElement('p');
-          empty.className = 'muted';
-          empty.textContent = 'プラン情報がありません。サブスク換算では API 費用を表示します。';
-          list.append(empty);
-          return;
-        }
         subscriptions.forEach((subscription, index) => {
           const label = document.createElement('label');
           label.className = 'sub-option';
@@ -409,7 +398,7 @@
           monthly.textContent = `${formatUSD(subscription.monthlyUSD)}/月`;
           const factor = document.createElement('span');
           factor.className = 'sub-option-meta';
-          const ratio = Number(subscription.apiValueUSD) > 0 ? Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD) : null;
+          const ratio = Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD);
           factor.textContent = `係数 ×${formatFactor(ratio)}`;
           content.append(name, monthly, factor);
           label.append(checkbox, content);
@@ -478,14 +467,15 @@
         }
         const models = [...new Set(benchmark.points.map((point) => text(point.model)))].sort((a, b) => a.localeCompare(b));
         models.forEach((model) => {
-          if (!modelEnabled.has(model)) modelEnabled.set(model, true);
+          const key = `${benchmark.id}\u0000${model}`;
+          if (!modelEnabled.has(key)) modelEnabled.set(key, true);
           const label = document.createElement('label');
           label.className = 'model-option';
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          checkbox.checked = modelEnabled.get(model) !== false;
+          checkbox.checked = modelEnabled.get(key) !== false;
           checkbox.addEventListener('change', () => {
-            modelEnabled.set(model, checkbox.checked);
+            modelEnabled.set(key, checkbox.checked);
             renderViews();
           });
           const swatch = document.createElement('span');
@@ -500,29 +490,23 @@
       function chosenOffer(point) {
         if (mode !== 'subscription') return null;
         const enabledPlans = new Set((REPORT.subscriptions || []).filter((_, index) => subscriptionEnabled[index] !== false).map((subscription) => subscription.name));
-        let best = null;
-        for (const offer of point.offers || []) {
-          if (!enabledPlans.has(offer.plan)) continue;
-          if (!best || Number(offer.cost) < Number(best.cost) || (Number(offer.cost) === Number(best.cost) && text(offer.plan).localeCompare(text(best.plan)) < 0)) best = offer;
-        }
-        return best;
+        return (point.offers || []).find((offer) => enabledPlans.has(offer.plan)) || null;
       }
-      function factorFor(offer, point) {
-        const subscription = (REPORT.subscriptions || []).find((candidate) => candidate.name === offer.plan && Number(candidate.apiValueUSD) > 0);
-        if (subscription) return Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD);
-        return Number(point.apiCost) !== 0 ? Number(offer.cost) / Number(point.apiCost) : null;
+      function factorFor(offer) {
+        const subscription = (REPORT.subscriptions || []).find((candidate) => candidate.name === offer.plan);
+        return Number(subscription.monthlyUSD) / Number(subscription.apiValueUSD);
       }
       function rowsForBenchmark() {
         const benchmark = activeBenchmark();
         if (!benchmark || !benchmark.points) return [];
-        return benchmark.points.filter((point) => modelEnabled.get(text(point.model)) !== false).map((point) => {
+        return benchmark.points.filter((point) => modelEnabled.get(`${benchmark.id}\u0000${text(point.model)}`) !== false).map((point) => {
           const offer = chosenOffer(point);
           const matched = offer !== null;
           return {
             point,
             cost: matched ? Number(offer.cost) : Number(point.apiCost),
             offer: matched ? offer : null,
-            factor: matched ? factorFor(offer, point) : null,
+            factor: matched ? factorFor(offer) : null,
             fallback: mode === 'subscription' && !matched
           };
         });
@@ -563,7 +547,7 @@
       }
       function tooltipHTML(row) {
         const point = row.point;
-        const basis = row.offer ? `${text(row.offer.plan)}（係数 ×${formatFactor(row.factor)}）` : row.fallback ? 'API fallback' : 'API';
+        const basis = basisText(row);
         const line = (label, value) => `<div class="tip-row"><span class="tip-label">${escapeHTML(label)}</span><span>${escapeHTML(value)}</span></div>`;
         return `<div class="tip-title">${escapeHTML(point.model)}</div>${line('エージェント', point.agent)}${line('Effort', point.effort)}${line('スコア', formatScore(point.score))}${line('API USD', formatUSD(point.apiCost))}${line('表示 USD', formatUSD(row.cost))}${line('コスト基準', basis)}`;
       }
@@ -708,9 +692,6 @@
       renderDefinitions();
       renderSources();
       renderModelLegend();
-      if (window.echarts) {
-        chart = window.echarts.init($('chart'), null, { renderer: 'canvas' });
-      }
       renderViews();
       window.addEventListener('resize', () => {
         if (chart) chart.resize();

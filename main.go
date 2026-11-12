@@ -96,7 +96,7 @@ func loadReport(dataDir string) (report, error) {
 	if err != nil {
 		return report{}, err
 	}
-	path := filepath.Join(dataDir, "ai_subscription_value_summary.md")
+	path := filepath.Join(dataDir, subscriptionMarkdownFile)
 	markdown, err := os.ReadFile(path)
 	if err != nil {
 		return report{}, fmt.Errorf("read subscription source (run fetch first): %w", err)

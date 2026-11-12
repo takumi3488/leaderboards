@@ -53,21 +53,19 @@ func parseSubscriptionOverview(lines []string) ([]subscription, error) {
 		for index, cell := range cells {
 			indices[strings.ToLower(strings.TrimSpace(cell))] = index
 		}
-		if _, ok := indices["subscription"]; ok {
-			if _, hasMonths := indices["months"]; hasMonths {
-				if _, hasCost := indices["avg cost (usd)"]; hasCost {
-					if _, hasValue := indices["avg api value (usd)"]; hasValue {
-						if headerAt >= 0 {
-							return nil, fmt.Errorf("subscription overview contains more than one matching header")
-						}
-						headerAt, header, columns = i, cells, indices
-					}
+		if _, hasSubscription := indices["subscription"]; hasSubscription {
+			_, hasCost := indices["avg cost (usd)"]
+			_, hasValue := indices["avg api value (usd)"]
+			if hasCost && hasValue {
+				if headerAt >= 0 {
+					return nil, fmt.Errorf("subscription overview contains more than one matching header")
 				}
+				headerAt, header, columns = i, cells, indices
 			}
 		}
 	}
 	if headerAt < 0 {
-		return nil, fmt.Errorf("subscription overview table is missing required columns: Subscription, Months, Avg Cost (USD), Avg API Value (USD)")
+		return nil, fmt.Errorf("subscription overview table is missing required columns: Subscription, Avg Cost (USD), Avg API Value (USD)")
 	}
 
 	plans := make([]subscription, 0, 10)
@@ -90,11 +88,6 @@ func parseSubscriptionOverview(lines []string) ([]subscription, error) {
 		if _, duplicate := planIndices[name]; duplicate {
 			return nil, fmt.Errorf("subscription overview contains duplicate plan %q", name)
 		}
-		monthsText := strings.TrimSpace(cells[columns["months"]])
-		months, err := strconv.Atoi(strings.ReplaceAll(monthsText, ",", ""))
-		if err != nil || months <= 0 {
-			return nil, fmt.Errorf("subscription %q has invalid Months value %q", name, monthsText)
-		}
 		monthlyUSD, err := parseSubscriptionAmount(cells[columns["avg cost (usd)"]])
 		if err != nil || monthlyUSD <= 0 {
 			return nil, fmt.Errorf("subscription %q has invalid Avg Cost (USD) %q", name, strings.TrimSpace(cells[columns["avg cost (usd)"]]))
@@ -104,7 +97,7 @@ func parseSubscriptionOverview(lines []string) ([]subscription, error) {
 			return nil, fmt.Errorf("subscription %q has invalid Avg API Value (USD) %q: value must be positive", name, strings.TrimSpace(cells[columns["avg api value (usd)"]]))
 		}
 		planIndices[name] = struct{}{}
-		plans = append(plans, subscription{Name: name, MonthlyUSD: monthlyUSD, APIValueUSD: apiValueUSD, Months: months})
+		plans = append(plans, subscription{Name: name, MonthlyUSD: monthlyUSD, APIValueUSD: apiValueUSD})
 	}
 	if len(plans) == 0 {
 		return nil, fmt.Errorf("subscription overview table contains no plan rows")
@@ -170,6 +163,8 @@ func parseSubscriptionDetails(lines []string, plans []subscription) error {
 					}
 					models = append(models, model)
 				}
+			} else if modelColumn >= 0 {
+				inModelTable = false
 			}
 			if strings.Contains(trimmed, "</details>") {
 				if detailPlan == "" {
@@ -306,7 +301,7 @@ func applySubscriptions(benchmarks []benchmark, subscriptions []subscription) {
 	for i := range benchmarks {
 		for j := range benchmarks[i].Points {
 			p := &benchmarks[i].Points[j]
-			p.Offers = p.Offers[:0]
+			p.Offers = nil
 			for _, rate := range rates[canonicalModel(p.Model)] {
 				p.Offers = append(p.Offers, offer{Plan: rate.name, Cost: p.APICost * rate.factor})
 			}
