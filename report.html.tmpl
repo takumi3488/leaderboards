@@ -264,9 +264,7 @@
       </section>
   </div>
   <script type="application/json" id="report-data">{{.ReportJSON}}</script>
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js" integrity="sha384-pPi0zxBAoDu6+JXW/C68UZLvBUUtU+7zonhif43rqj7pxsGyqyqzcian2Rj37Rss" crossorigin="anonymous"></script>
   <script>
-    (() => {
       'use strict';
       const language = new URLSearchParams(window.location.search).get('la') === 'ja' ? 'ja' : 'en';
       const locale = language === 'ja' ? 'ja-JP' : 'en-US';
@@ -329,10 +327,7 @@
           noModelData: 'No model data is available.',
           matchedPlanBasis: (plan, factor) => `${plan} (factor ×${factor})`,
           apiFallback: 'API fallback',
-          apiBasis: 'API',
           noResults: 'No matching results.',
-          agentTooltip: 'Agent',
-          scoreTooltip: 'Score',
           displayCostAxis: 'Display cost (USD)',
           zeroOnLog: (count) => `zero or below on log scale: ${count}`,
           negativeOnLinear: (count) => `negative costs on linear scale: ${count}`,
@@ -402,10 +397,7 @@
           noModelData: 'モデルデータがありません。',
           matchedPlanBasis: (plan, factor) => `${plan}（係数 ×${factor}）`,
           apiFallback: 'API fallback',
-          apiBasis: 'API',
           noResults: '該当する結果はありません。',
-          agentTooltip: 'エージェント',
-          scoreTooltip: 'スコア',
           displayCostAxis: '表示コスト（USD）',
           zeroOnLog: (count) => `対数軸で 0 以下 ${count} 件`,
           negativeOnLinear: (count) => `線形軸で負の費用 ${count} 件`,
@@ -427,7 +419,6 @@
       };
       function applyLanguage() {
         document.documentElement.lang = language;
-        document.title = t('title');
         document.querySelectorAll('[data-i18n]').forEach((element) => {
           element.textContent = t(element.dataset.i18n);
         });
@@ -436,6 +427,11 @@
         });
       }
       applyLanguage();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js" integrity="sha384-pPi0zxBAoDu6+JXW/C68UZLvBUUtU+7zonhif43rqj7pxsGyqyqzcian2Rj37Rss" crossorigin="anonymous"></script>
+  <script>
+    (() => {
+      'use strict';
       const REPORT = JSON.parse(document.getElementById('report-data').textContent);
       const $ = (id) => document.getElementById(id);
       const palette = ['#2454a6', '#b34c38', '#2f826d', '#8c5e9f', '#b27618', '#277d9a', '#b44778', '#587a42', '#6e66a8', '#a45e33', '#3b70bb', '#49727b'];
@@ -701,7 +697,7 @@
       }
       function basisText(row) {
         if (row.offer) return t('matchedPlanBasis', text(row.offer.plan), formatFactor(row.factor));
-        return row.fallback ? t('apiFallback') : t('apiBasis');
+        return row.fallback ? t('apiFallback') : t('apiMode');
       }
       function renderTable() {
         const body = $('results-body');
@@ -737,7 +733,7 @@
         const point = row.point;
         const basis = basisText(row);
         const line = (label, value) => `<div class="tip-row"><span class="tip-label">${escapeHTML(label)}</span><span>${escapeHTML(value)}</span></div>`;
-        return `<div class="tip-title">${escapeHTML(point.model)}</div>${line(t('agentTooltip'), point.agent)}${line(t('effortColumn'), point.effort)}${line(t('scoreTooltip'), formatScore(point.score))}${line(t('apiUsdColumn'), formatUSD(point.apiCost))}${line(t('displayUsdColumn'), formatUSD(row.cost))}${line(t('costBasisColumn'), basis)}`;
+        return `<div class="tip-title">${escapeHTML(point.model)}</div>${line(t('agentColumn'), point.agent)}${line(t('effortColumn'), point.effort)}${line(t('scoreHeader'), formatScore(point.score))}${line(t('apiUsdColumn'), formatUSD(point.apiCost))}${line(t('displayUsdColumn'), formatUSD(row.cost))}${line(t('costBasisColumn'), basis)}`;
       }
       function renderChart() {
         const benchmark = activeBenchmark();
