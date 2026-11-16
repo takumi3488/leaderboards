@@ -41,7 +41,8 @@ deploy せず、前回公開版を維持する。原本はリポジトリにコ�
 - URL パラメーターは `benchmark`（ベンチマーク ID）、`cost-mode`（`api` / `subscription`）、`axis-scale`（`log` / `linear`）、複数指定可能な `disabled-plan`（プラン名）、`model-on` / `model-off`（正規化済みモデルキー）。`la=ja` も併用可能。
 - プランは料金の安い順で表示し、各プランを個別に ON/OFF。同じモデルに有効なプランが複数あれば換算額が最安のものを採用する。初期状態は全 ON。
 - サブスク換算で有効プランに一致しないモデルは初期状態で非選択。手動選択時は API 料金で表示。
-- モデル照合は正規化後の完全一致。大文字小文字、区切り文字、プロバイダ接頭辞と Claude の表示名だけを正規化し、別バージョン等は推定しない。
+- モデル照合は料金データとの正規化後の完全一致。大文字小文字、区切り文字、プロバイダ接頭辞と Claude の表示名だけを正規化し、料金照合で別バージョン等は推定しない。
+- 表示対象は全ベンチマークの読み込み結果を通じ、同一モデル系列・variant の数値バージョンで最新のものだけ（ドット区切りの世代番号は数値比較）。サイズを表す数値 suffix は別 variant として扱う。たとえば GPT-6.1 Sol があれば GPT-6 Sol / GPT-5.6 Sol は除外する。Sol / Astra / Luna や Claude Opus / Sonnet など異なる系列は別扱い。
 
 ```text
 Terminal-Bench / Terminal-Bench Science: トークン数 / rollout × プラン実質 $/MTok
@@ -58,7 +59,7 @@ Terminal-Bench Science は `total_tokens / tasks` で1試行あたりのトー�
 
 - Terminal-Bench: `total_cost_usd / n_trials`。スコアは `accuracy`。
 - FrontierCode: `cost` は rollout 平均 USD。スコアは `new_score × 100`。
-- FrontierCode は公開 JSON の `main` 結果を全件利用。履歴モデルも含む。
+- FrontierCode は公開 JSON の `main` 結果を全件読み込む。同一系列・variant の旧バージョンは表示対象から除外する。
 - Terminal-Bench Science: 全分野の集計結果を利用。API 料金は `total_cost_usd / tasks`、スコアは百分率の `accuracy` をそのまま表示。
 - ベンチマーク間のスコアは直接比較しない。モデル・ハーネス単位で effort を線で接続する。
 - 公開データが料金 0 を報告する場合、0 のまま保持。対数軸では描画できないため件数を注記し、表と線形軸には残す。
