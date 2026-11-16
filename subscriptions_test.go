@@ -1,50 +1,186 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 )
 
-func TestApplySubscriptionsUsesTokensAndMeteredRatios(t *testing.T) {
+func TestApplySubscriptionsUsesNoCachePricesAndPreservesSourceMetrics(t *testing.T) {
 	pricing := readPricingFixture(t)
 	tokens := 500_000.0
-	benchmarks := []benchmark{{Points: []point{
-		{Model: "GPT-6 Astra", Tokens: &tokens, APICost: 99},
-		{Model: "gpt-5.6-sol", APICost: 1.176},
-	}}}
+	zeroTokens := 0.0
+	benchmarks := []benchmark{
+		{Points: []point{{Model: "GPT-6 Astra", Tokens: &tokens, APICost: 99}}},
+		{Points: []point{{Model: "gpt-6-astra", Tokens: &zeroTokens, APICost: 1}}},
+		{Points: []point{{Model: "gpt-6-astra", APICost: 17}}},
+		{Points: []point{{Model: "gpt-5.6-sol", APICost: 1.176}}},
+		{Points: []point{{Model: "model-without-api-price", Tokens: &tokens}}},
+		{Points: []point{{Model: "model-without-api-price"}}},
+	}
 	plans := applySubscriptions(benchmarks, pricing.Points)
-	points := benchmarks[0].Points
-	if got, want := offerPlanNames(points[0].Offers), []string{"Astra Plan", "Premium Plan"}; !equalStrings(got, want) {
-		t.Fatalf("offers sorted by cost = %v, want %v", got, want)
+	expectedAstraAPI := 100.0 / 6
+	expectedAstraOffer := 6.0 / 1.47 * expectedAstraAPI
+	expectedPremiumOffer := 8.0 / 1.47 * expectedAstraAPI
+	wantPlans := []string{"Astra Plan", "Premium Plan"}
+	for i, bench := range benchmarks[:3] {
+		point := bench.Points[0]
+		if got := offerPlanNames(point.Offers); !equalStrings(got, wantPlans) {
+			t.Fatalf("benchmark %d offers sorted by unit price = %v, want %v", i, got, wantPlans)
+		}
+		if point.APIUSDPerMTok == nil {
+			t.Fatalf("API unit price missing for benchmark %d", i)
+		}
+		assertNear(t, *point.APIUSDPerMTok, expectedAstraAPI, 1e-12)
+		for j, want := range []float64{expectedAstraOffer, expectedPremiumOffer} {
+			if point.Offers[j].USDPerMTok == nil {
+				t.Fatalf("offer %q has no estimated unit price", point.Offers[j].Plan)
+			}
+			assertNear(t, *point.Offers[j].USDPerMTok, want, 1e-12)
+		}
 	}
-	assertNear(t, points[0].Offers[0].Cost, 3, 1e-12)
-	assertNear(t, points[0].Offers[1].Cost, 4, 1e-12)
-	assertNear(t, points[0].Offers[0].USDPerMTok, 6, 1e-12)
-	if points[0].Offers[0].Confidence != "high" {
-		t.Errorf("duplicate did not keep cheaper row's confidence: %+v", points[0].Offers[0])
+	if benchmarks[0].Points[0].Offers[0].Confidence != "high" {
+		t.Errorf("duplicate did not keep cheaper row's confidence: %+v", benchmarks[0].Points[0].Offers[0])
 	}
-	if len(points[1].Offers) != 1 || points[1].Offers[0].Plan != "Measured English Plan" {
-		t.Fatalf("metered ratio offer = %+v", points[1].Offers)
+	if *benchmarks[0].Points[0].Tokens != tokens || benchmarks[0].Points[0].APICost != 99 ||
+		*benchmarks[1].Points[0].Tokens != 0 || benchmarks[1].Points[0].APICost != 1 ||
+		benchmarks[2].Points[0].Tokens != nil || benchmarks[2].Points[0].APICost != 17 {
+		t.Errorf("raw benchmark usage metadata changed: %+v", benchmarks[:3])
 	}
-	assertNear(t, points[1].Offers[0].Cost, 0.588, 1e-12)
-	if len(plans) != 3 {
-		t.Fatalf("used plans = %+v, want only three plans that produced offers", plans)
+	if got := benchmarks[0].Points[0].APIRolloutCost; got == nil {
+		t.Fatal("measured API rollout cost is nil")
+	} else {
+		assertNear(t, *got, tokens/1_000_000*expectedAstraAPI, 1e-12)
 	}
-	if got, want := []string{plans[0].Name, plans[1].Name, plans[2].Name}, []string{"Astra Plan", "Measured English Plan", "Premium Plan"}; !equalStrings(got, want) {
-		t.Errorf("unique plans sorted by monthly price and name = %v, want %v", got, want)
+	if got := benchmarks[1].Points[0].APIRolloutCost; got == nil || *got != 0 {
+		t.Errorf("zero-token API rollout cost = %v, want zero", got)
+	}
+	if got := benchmarks[2].Points[0].APIRolloutCost; got == nil {
+		t.Fatal("API-derived rollout cost is nil")
+	} else {
+		assertNear(t, *got, 17/1.47*expectedAstraAPI, 1e-12)
+	}
+	if got := benchmarks[0].Points[0].Offers[0].RolloutCost; got == nil {
+		t.Fatal("measured token rollout cost is nil")
+	} else {
+		assertNear(t, *got, tokens/1_000_000*expectedAstraOffer, 1e-12)
+	}
+	if got := benchmarks[1].Points[0].Offers[0].RolloutCost; got == nil || *got != 0 {
+		t.Errorf("zero-token subscription rollout cost = %v, want zero", got)
+	}
+	if got := benchmarks[2].Points[0].Offers[0].RolloutCost; got == nil {
+		t.Fatal("source-calibrated rollout cost is nil")
+	} else {
+		assertNear(t, *got, 17/1.47*expectedAstraOffer, 1e-12)
+	}
+	sol := benchmarks[3].Points[0]
+	if sol.APIUSDPerMTok == nil {
+		t.Fatal("API component price missing for metered model")
+	}
+	assertNear(t, *sol.APIUSDPerMTok, 20.0/6, 1e-12)
+	if len(sol.Offers) != 1 || sol.Offers[0].Plan != "Measured English Plan" {
+		t.Fatalf("metered model offers = %+v", sol.Offers)
+	}
+	if sol.Offers[0].USDPerMTok == nil {
+		t.Fatal("subscription API-equivalent unit price missing")
+	}
+	assertNear(t, *sol.Offers[0].USDPerMTok, 0.294/0.588*(20.0/6), 1e-12)
+	if got := sol.APIRolloutCost; got == nil {
+		t.Fatal("source-calibrated API rollout cost is nil")
+	} else {
+		assertNear(t, *got, 1.176/0.588*(20.0/6), 1e-12)
+	}
+	if got := sol.Offers[0].RolloutCost; got == nil {
+		t.Fatal("source-calibrated subscription rollout cost is nil")
+	} else {
+		assertNear(t, *got, 1.176/0.588*(0.294/0.588*(20.0/6)), 1e-12)
+	}
+	missing := benchmarks[4].Points[0]
+	if missing.APIUSDPerMTok != nil {
+		t.Errorf("missing API price = %v, want nil", *missing.APIUSDPerMTok)
+	}
+	if len(missing.Offers) != 1 || missing.Offers[0].Plan != "No API Plan" || missing.Offers[0].USDPerMTok != nil {
+		t.Fatalf("matching subscription with missing source price was changed: %+v", missing.Offers)
+	}
+	if missing.Offers[0].RolloutCost != nil || missing.APIRolloutCost != nil {
+		t.Errorf("missing source prices produced rollout costs: %+v", missing)
+	}
+	bothMissing := benchmarks[5].Points[0]
+	if len(bothMissing.Offers) != 1 || bothMissing.Offers[0].Plan != "No API Plan" ||
+		bothMissing.Offers[0].USDPerMTok != nil || bothMissing.Offers[0].RolloutCost != nil {
+		t.Fatalf("offer with missing API prices = %+v, want retained offer with null prices", bothMissing.Offers)
+	}
+	measuredJSON, err := json.Marshal(benchmarks[0].Points[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var measuredFields struct {
+		APIUSDPerMTok  *float64 `json:"apiUSDPerMTok"`
+		APIRolloutCost *float64 `json:"apiRolloutCost"`
+		Offers         []offer  `json:"offers"`
+	}
+	if err := json.Unmarshal(measuredJSON, &measuredFields); err != nil {
+		t.Fatal(err)
+	}
+	if measuredFields.APIUSDPerMTok == nil || *measuredFields.APIUSDPerMTok != expectedAstraAPI ||
+		measuredFields.APIRolloutCost == nil || *measuredFields.APIRolloutCost != tokens/1_000_000*expectedAstraAPI ||
+		measuredFields.Offers[0].USDPerMTok == nil || *measuredFields.Offers[0].USDPerMTok != expectedAstraOffer {
+		t.Errorf("no-cache prices missing from point JSON: %+v", measuredFields)
+	}
+	missingJSON, err := json.Marshal(bothMissing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var missingFields map[string]json.RawMessage
+	if err := json.Unmarshal(missingJSON, &missingFields); err != nil {
+		t.Fatal(err)
+	}
+	if string(missingFields["apiUSDPerMTok"]) != "null" || string(missingFields["apiRolloutCost"]) != "null" {
+		t.Errorf("missing API unit/rollout JSON = %s / %s, want null", missingFields["apiUSDPerMTok"], missingFields["apiRolloutCost"])
+	}
+	var missingOffers []map[string]json.RawMessage
+	if err := json.Unmarshal(missingFields["offers"], &missingOffers); err != nil {
+		t.Fatal(err)
+	}
+	if string(missingOffers[0]["usdPerMTok"]) != "null" || string(missingOffers[0]["rolloutCost"]) != "null" {
+		t.Errorf("unavailable offer JSON = %s / %s, want null", missingOffers[0]["usdPerMTok"], missingOffers[0]["rolloutCost"])
+	}
+	if got, want := []string{plans[0].Name, plans[1].Name, plans[2].Name, plans[3].Name}, []string{"No API Plan", "Astra Plan", "Measured English Plan", "Premium Plan"}; !equalStrings(got, want) {
+		t.Errorf("used plans sorted by monthly price and name = %v, want %v", got, want)
 	}
 }
 
-func TestScienceZeroTokensKeepSubscriptionOffers(t *testing.T) {
+func TestApplySubscriptionsSortsEqualUnitPricesByPlan(t *testing.T) {
 	pricing := readPricingFixture(t)
+	pricing.Points = append(pricing.Points, pricingPoint{
+		Billing: "subscription", Plan: "Aardvark Plan", Model: "gpt-6-astra",
+		PriceUSD: 10, RealUSDPerMTok: 6, Confidence: "medium",
+	})
+	benchmarks := []benchmark{{Points: []point{{Model: "gpt-6-astra"}}}}
+	applySubscriptions(benchmarks, pricing.Points)
+	offers := benchmarks[0].Points[0].Offers
+	if got, want := offerPlanNames(offers), []string{"Aardvark Plan", "Astra Plan", "Premium Plan"}; !equalStrings(got, want) {
+		t.Fatalf("offers sorted by unit price then plan = %v, want %v", got, want)
+	}
+	if offers[0].USDPerMTok == nil || offers[1].USDPerMTok == nil {
+		t.Fatalf("equal-rate offers have nil unit prices: %+v", offers)
+	}
+	assertNear(t, *offers[0].USDPerMTok, *offers[1].USDPerMTok, 0)
+}
+
+func TestScienceZeroTokensDoNotAffectSubscriptionOffers(t *testing.T) {
+	pricing := readPricingFixture(t)
+	expectedAstraOffer := 6.0 / 1.47 * (100.0 / 6)
 	cases := []struct {
-		name    string
-		model   string
-		metrics string
-		plan    string
+		name     string
+		model    string
+		metrics  string
+		plan     string
+		unitRate *float64
+		hasAPI   bool
 	}{
-		{"model without API price", "model-without-api-price", `{"accuracy":0,"total_cost_usd":0,"total_tokens":0,"tasks":1}`, "No API Plan"},
-		{"API cost cannot override zero tokens", "GPT-6 Astra", `{"accuracy":0,"total_cost_usd":1,"total_tokens":0,"tasks":1}`, "Astra Plan"},
+		{"model without API price", "model-without-api-price", `{"accuracy":0,"total_cost_usd":0,"total_tokens":0,"tasks":1}`, "No API Plan", nil, false},
+		{"zero tokens", "GPT-6 Astra", `{"accuracy":0,"total_cost_usd":1,"total_tokens":0,"tasks":1}`, "Astra Plan", &expectedAstraOffer, true},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -58,18 +194,29 @@ func TestScienceZeroTokensKeepSubscriptionOffers(t *testing.T) {
 			}
 			benchmarks := []benchmark{parsed}
 			applySubscriptions(benchmarks, pricing.Points)
-			for _, offer := range benchmarks[0].Points[0].Offers {
-				if offer.Plan == test.plan {
-					assertNear(t, offer.Cost, 0, 0)
+			point := benchmarks[0].Points[0]
+			if (point.APIUSDPerMTok != nil) != test.hasAPI {
+				t.Errorf("API unit price = %v, hasAPI %v; want hasAPI %v", point.APIUSDPerMTok, point.APIUSDPerMTok != nil, test.hasAPI)
+			}
+			for _, candidate := range point.Offers {
+				if candidate.Plan == test.plan {
+					if (candidate.USDPerMTok != nil) != (test.unitRate != nil) {
+						t.Errorf("offer rate = %v, want %v", candidate.USDPerMTok, test.unitRate)
+					} else if test.unitRate != nil {
+						assertNear(t, *candidate.USDPerMTok, *test.unitRate, 1e-12)
+					}
+					if candidate.RolloutCost == nil || *candidate.RolloutCost != 0 {
+						t.Errorf("zero-token rollout cost = %v, want zero", candidate.RolloutCost)
+					}
 					return
 				}
 			}
-			t.Fatalf("matching plan %q missing from offers: %+v", test.plan, benchmarks[0].Points[0].Offers)
+			t.Fatalf("matching plan %q missing from offers: %+v", test.plan, point.Offers)
 		})
 	}
 }
 
-func TestApplySubscriptionsUsesHandAPIPricesAndSkipsMissingFallback(t *testing.T) {
+func TestApplySubscriptionsUsesHandAPIPricesAndKeepsSubscriptionWithoutAPIPrice(t *testing.T) {
 	pricing := readPricingFixture(t)
 	benchmarks := []benchmark{{Points: []point{
 		{Model: "gpt-6-astra", APICost: 1},
@@ -80,25 +227,64 @@ func TestApplySubscriptionsUsesHandAPIPricesAndSkipsMissingFallback(t *testing.T
 	if len(points[0].Offers) != 2 {
 		t.Fatalf("hand-table offers = %+v, want two offers", points[0].Offers)
 	}
-	assertNear(t, points[0].Offers[0].Cost, 6/1.47, 1e-12)
-	if got := apiPrices(append(pricing.Points, pricingPoint{Billing: "metered", Model: "gpt-6-astra", RealUSDPerMTok: 0.123}))["gpt-6-astra"]; got != 0.123 {
-		t.Errorf("metered API price = %g, want source rate 0.123 over the hand table", got)
+	if points[0].APIUSDPerMTok == nil {
+		t.Fatal("hand-table API unit price missing")
 	}
-	if len(points[1].Offers) != 0 {
-		t.Errorf("model without tokens or API price got offers: %+v", points[1].Offers)
+	assertNear(t, *points[0].APIUSDPerMTok, 100.0/6, 1e-12)
+	legacyRows := append(pricing.Points, pricingPoint{
+		Billing: "metered", Model: "gpt-6-astra", RealUSDPerMTok: 0.123, ListBlendedUSDPerMTok: 0.456,
+	})
+	if got := apiPrices(legacyRows)["gpt-6-astra"]; got != 100.0/6 {
+		t.Errorf("legacy metered/blended rate changed displayed API price to %g", got)
+	}
+	if got := referenceAPIPrices(legacyRows)["gpt-6-astra"]; got != 0.123 {
+		t.Errorf("metered legacy reference = %g, want 0.123", got)
+	}
+	if points[1].APIUSDPerMTok != nil {
+		t.Errorf("model without API price = %v, want nil", *points[1].APIUSDPerMTok)
+	}
+	if len(points[1].Offers) != 1 || points[1].Offers[0].Plan != "No API Plan" || points[1].Offers[0].USDPerMTok != nil {
+		t.Fatalf("subscription without API price was omitted or given an unsupported rate: %+v", points[1].Offers)
 	}
 }
 
-func TestAPIPricesUseNonAnthropicListBlendFallback(t *testing.T) {
+func TestAPIPricesUseUncachedComponentsAndConvertCNY(t *testing.T) {
+	var anthropic pricingPoint
+	if err := json.Unmarshal([]byte(`{"billing":"subscription","vendor":"Anthropic","model":"claude-opus-5.5","list_price":{"input":4,"output":20,"cached":0.01,"currency":"USD"},"list_blended_usd_per_mtok":0.456}`), &anthropic); err != nil {
+		t.Fatal(err)
+	}
 	points := []pricingPoint{
-		{Model: "list-only-model", Vendor: "OpenAI", ListBlendedUSDPerMTok: 0.123},
-		{Model: "claude-opus-5.5", Vendor: "Anthropic", ListBlendedUSDPerMTok: 0.456},
+		{Billing: "metered", Model: "gpt-6-astra", RealUSDPerMTok: 0.123, ListBlendedUSDPerMTok: 0.456, ListPrice: &listPrice{Input: 20, Output: 100, Currency: "USD"}},
+		{Billing: "subscription", Model: "component-only-model", ListPrice: &listPrice{Input: 3, Output: 9, Currency: "USD"}},
+		{Billing: "metered", Model: "cny-model", ListPrice: &listPrice{Input: 2 * cnyPerUSD, Output: 10 * cnyPerUSD, Currency: "CNY"}},
+		{Billing: "metered", Model: "invalid-currency", ListPrice: &listPrice{Input: 2, Output: 10, Currency: "EUR"}},
+		anthropic,
+		{Model: "blend-only-model", Vendor: "OpenAI", ListBlendedUSDPerMTok: 0.456},
+		{Model: "anthropic-blend-only", Vendor: "Anthropic", ListBlendedUSDPerMTok: 0.456},
 	}
 	prices := apiPrices(points)
-	assertNear(t, prices["list-only-model"], 0.123, 1e-12)
-	if _, ok := prices["claude-opus-5-5"]; ok {
-		t.Errorf("used Anthropic list blend without cache-write pricing: %v", prices["claude-opus-5-5"])
+	assertNear(t, prices["gpt-6-astra"], 200.0/6, 1e-12)
+	assertNear(t, prices["component-only-model"], 24.0/6, 1e-12)
+	assertNear(t, prices["cny-model"], 20.0/6, 1e-12)
+	assertNear(t, prices["claude-opus-5-5"], 40.0/6, 1e-12)
+	if _, ok := prices["invalid-currency"]; ok {
+		t.Errorf("accepted unsupported API price currency: %v", prices["invalid-currency"])
 	}
+	if _, ok := prices["blend-only-model"]; ok {
+		t.Errorf("used legacy blended price as a displayed API price: %v", prices["blend-only-model"])
+	}
+	if _, ok := prices["anthropic-blend-only"]; ok {
+		t.Errorf("used Anthropic list blend without cache-write pricing: %v", prices["anthropic-blend-only"])
+	}
+	if got := referenceAPIPrices(points)["blend-only-model"]; got != 0.456 {
+		t.Errorf("legacy list blend was not kept as a calibration reference: %v", got)
+	}
+}
+
+func TestHandAPIPricesUseOrdinaryAnthropicInputRates(t *testing.T) {
+	prices := apiPrices(nil)
+	assertNear(t, prices["claude-fable-5-2"], 80.0/6, 1e-12)
+	assertNear(t, prices["claude-opus-4-8"], 50.0/6, 1e-12)
 }
 
 func TestScenarioPlanRowsAreSkipped(t *testing.T) {
@@ -149,11 +335,6 @@ func TestParseRealPricingValidationAndSkippedRows(t *testing.T) {
 			t.Errorf("accepted unusable real-api-pricing JSON: %s", raw)
 		}
 	}
-}
-
-func TestBlendAPIPricesUsesStandardWorkload(t *testing.T) {
-	assertNear(t, (apiPrice{CacheRead: 0.4, FreshInput: 4, Output: 20}).blendedUSDPerMTok(), 0.588, 1e-12)
-	assertNear(t, (apiPrice{CacheRead: 0.5, FreshInput: 6.25, Output: 25}).blendedUSDPerMTok(), 0.76625, 1e-12)
 }
 
 func TestCanonicalModelCosmeticEquivalence(t *testing.T) {

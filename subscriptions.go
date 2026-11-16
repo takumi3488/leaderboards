@@ -56,23 +56,47 @@ func displayPlan(point pricingPoint) string {
 }
 
 func apiPrices(points []pricingPoint) map[string]float64 {
-	prices := make(map[string]float64, len(handAPIPrices)+len(points))
+	meteredPrices := make(map[string]float64, len(points))
 	for _, point := range points {
-		if point.Billing != "metered" || !positiveFinite(point.RealUSDPerMTok) {
-			continue
+		if point.Billing == "metered" {
+			setCheaperPrice(meteredPrices, canonicalModel(point.Model), sourceAPIPrice(point.ListPrice))
 		}
-		key := canonicalModel(point.Model)
-		if key == "" {
-			continue
-		}
-		if prices[key] == 0 || point.RealUSDPerMTok < prices[key] {
-			prices[key] = point.RealUSDPerMTok
-		}
+	}
+	prices := make(map[string]float64, len(handAPIPrices)+len(points))
+	for model, price := range meteredPrices {
+		prices[model] = price
 	}
 	for model, price := range handAPIPrices {
 		key := canonicalModel(model)
-		if prices[key] == 0 {
-			prices[key] = price.blendedUSDPerMTok()
+		if _, exists := prices[key]; !exists {
+			setCheaperPrice(prices, key, price.usdPerMTok())
+		}
+	}
+	sourcePrices := make(map[string]float64, len(points))
+	for _, point := range points {
+		if point.Billing != "metered" {
+			setCheaperPrice(sourcePrices, canonicalModel(point.Model), sourceAPIPrice(point.ListPrice))
+		}
+	}
+	for key, price := range sourcePrices {
+		if _, exists := prices[key]; !exists {
+			prices[key] = price
+		}
+	}
+	return prices
+}
+
+func referenceAPIPrices(points []pricingPoint) map[string]float64 {
+	prices := make(map[string]float64, len(handReferenceAPIPrices)+len(points))
+	for _, point := range points {
+		if point.Billing == "metered" && positiveFinite(point.RealUSDPerMTok) {
+			setCheaperPrice(prices, canonicalModel(point.Model), point.RealUSDPerMTok)
+		}
+	}
+	for model, price := range handReferenceAPIPrices {
+		key := canonicalModel(model)
+		if _, exists := prices[key]; !exists {
+			prices[key] = price
 		}
 	}
 	for _, point := range points {
@@ -80,14 +104,39 @@ func apiPrices(points []pricingPoint) map[string]float64 {
 			continue
 		}
 		key := canonicalModel(point.Model)
-		if key == "" {
-			continue
-		}
-		if prices[key] == 0 {
+		if _, exists := prices[key]; !exists {
 			prices[key] = point.ListBlendedUSDPerMTok
 		}
 	}
 	return prices
+}
+
+func sourceAPIPrice(price *listPrice) float64 {
+	if price == nil || !positiveFinite(price.Input) || !positiveFinite(price.Output) {
+		return 0
+	}
+	var rate float64
+	switch strings.ToUpper(strings.TrimSpace(price.Currency)) {
+	case "USD":
+		rate = (5*price.Input + price.Output) / 6
+	case "CNY":
+		rate = (5*price.Input + price.Output) / 6 / cnyPerUSD
+	default:
+		return 0
+	}
+	if !positiveFinite(rate) {
+		return 0
+	}
+	return rate
+}
+
+func setCheaperPrice(prices map[string]float64, key string, price float64) {
+	if key == "" || !positiveFinite(price) {
+		return
+	}
+	if prices[key] == 0 || price < prices[key] {
+		prices[key] = price
+	}
 }
 
 // canonicalModel folds only provider prefixes and cosmetic separators; model
@@ -124,14 +173,16 @@ func canonicalModel(model string) string {
 }
 
 type planRate struct {
-	usdPerMTok float64
-	confidence string
-	monthlyUSD float64
+	sourceUSDPerMTok float64
+	usdPerMTok       *float64
+	confidence       string
+	monthlyUSD       float64
 }
 
 // applySubscriptions sets model keys and offers, returning only plans used by an offer.
 func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscription {
 	api := apiPrices(points)
+	referenceAPI := referenceAPIPrices(points)
 	rates := make(map[string]map[string]planRate)
 	for _, point := range points {
 		if !usableSubscriptionPoint(point) {
@@ -146,8 +197,20 @@ func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscri
 			rates[name] = make(map[string]planRate)
 		}
 		current, exists := rates[name][model]
-		if !exists || point.RealUSDPerMTok < current.usdPerMTok {
-			rates[name][model] = planRate{point.RealUSDPerMTok, point.Confidence, point.PriceUSD}
+		if !exists || point.RealUSDPerMTok < current.sourceUSDPerMTok {
+			var unitRate *float64
+			if apiRate, hasAPI := api[model]; hasAPI && positiveFinite(referenceAPI[model]) {
+				estimated := point.RealUSDPerMTok / referenceAPI[model] * apiRate
+				if positiveFinite(estimated) {
+					unitRate = &estimated
+				}
+			}
+			rates[name][model] = planRate{
+				sourceUSDPerMTok: point.RealUSDPerMTok,
+				usdPerMTok:       unitRate,
+				confidence:       point.Confidence,
+				monthlyUSD:       point.PriceUSD,
+			}
 		}
 	}
 
@@ -156,32 +219,37 @@ func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscri
 		for j := range benchmarks[i].Points {
 			point := &benchmarks[i].Points[j]
 			point.ModelKey = canonicalModel(point.Model)
+			point.APIUSDPerMTok = nil
+			if apiRate, exists := api[point.ModelKey]; exists && positiveFinite(apiRate) {
+				rate := apiRate
+				point.APIUSDPerMTok = &rate
+			}
+			point.APIRolloutCost = estimateRolloutCost(
+				point.Tokens, point.APICost, point.APIUSDPerMTok, referenceAPI[point.ModelKey],
+			)
 			point.Offers = nil
 			for name, models := range rates {
 				rate, matches := models[point.ModelKey]
 				if !matches {
 					continue
 				}
-				var cost float64
-				if point.Tokens != nil {
-					cost = *point.Tokens / 1_000_000 * rate.usdPerMTok
-				} else if apiRate := api[point.ModelKey]; apiRate > 0 {
-					cost = point.APICost * rate.usdPerMTok / apiRate
-				} else {
-					continue
-				}
+				rolloutCost := estimateRolloutCost(point.Tokens, point.APICost, rate.usdPerMTok, referenceAPI[point.ModelKey])
 				point.Offers = append(point.Offers, offer{
-					Plan: name, Cost: cost, USDPerMTok: rate.usdPerMTok, Confidence: rate.confidence,
+					Plan: name, USDPerMTok: rate.usdPerMTok, RolloutCost: rolloutCost, Confidence: rate.confidence,
 				})
 				if _, exists := planInfo[name]; !exists {
 					planInfo[name] = subscription{Name: name, MonthlyUSD: rate.monthlyUSD}
 				}
 			}
 			sort.Slice(point.Offers, func(i, j int) bool {
-				if point.Offers[i].Cost == point.Offers[j].Cost {
-					return point.Offers[i].Plan < point.Offers[j].Plan
+				left, right := point.Offers[i], point.Offers[j]
+				if (left.USDPerMTok != nil) != (right.USDPerMTok != nil) {
+					return left.USDPerMTok != nil
 				}
-				return point.Offers[i].Cost < point.Offers[j].Cost
+				if left.USDPerMTok == nil || *left.USDPerMTok == *right.USDPerMTok {
+					return left.Plan < right.Plan
+				}
+				return *left.USDPerMTok < *right.USDPerMTok
 			})
 		}
 	}
@@ -196,4 +264,29 @@ func applySubscriptions(benchmarks []benchmark, points []pricingPoint) []subscri
 		return plans[i].Name < plans[j].Name
 	})
 	return plans
+}
+
+func estimateRolloutCost(tokens *float64, apiCost float64, rate *float64, referenceAPI float64) *float64 {
+	if tokens != nil {
+		if *tokens == 0 {
+			zero := 0.0
+			return &zero
+		}
+		if rate == nil {
+			return nil
+		}
+		cost := *tokens / 1_000_000 * *rate
+		if !math.IsInf(cost, 0) && !math.IsNaN(cost) {
+			return &cost
+		}
+		return nil
+	}
+	if rate == nil || !positiveFinite(referenceAPI) {
+		return nil
+	}
+	cost := apiCost / referenceAPI * *rate
+	if !math.IsInf(cost, 0) && !math.IsNaN(cost) {
+		return &cost
+	}
+	return nil
 }
