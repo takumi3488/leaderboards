@@ -105,6 +105,7 @@ func loadReport(dataDir string) (report, error) {
 	if err != nil {
 		return report{}, fmt.Errorf("parse %s: %w", path, err)
 	}
+	retainLatestModels(benchmarks)
 	subscriptions := applySubscriptions(benchmarks, pricing.Points)
 	return report{
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339),
