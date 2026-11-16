@@ -33,6 +33,8 @@ deploy せず、前回公開版を維持する。原本はリポジトリにコ�
 
 リポジトリ設定の Pages の Source は「GitHub Actions」。
 
+OGP/Twitter プレビューには英語固定の `assets/og-image.png`（編集用 SVG: `assets/og-image.svg`）を使い、workflow が `_site/og-image.png` にコピーして GitHub Pages へデプロイする。URL パラメーターごとの画像は生成しない。
+
 ## 表示と料金計算
 
 - Terminal-Bench / FrontierCode / Terminal-Bench Science、API / サブスク、対数 / 線形軸を切り替え。

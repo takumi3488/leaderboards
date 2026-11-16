@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Model comparison: score and cost</title>
+  <desc id="description">A score-cost comparison schematic for Terminal-Bench, FrontierCode, and Terminal-Bench Science, with API and subscription pricing.</desc>
+  <rect width="1200" height="630" fill="#ffffff"/>
+
+  <g fill="#202e46" font-family="Avenir Next, Trebuchet MS, sans-serif">
+    <text x="80" y="176" font-size="58" font-weight="700" letter-spacing="-1.4">Model</text>
+    <text x="80" y="240" font-size="58" font-weight="700" letter-spacing="-1.4">comparison</text>
+  </g>
+  <text x="80" y="293" fill="#556783" font-family="Avenir Next, Trebuchet MS, sans-serif" font-size="24" font-weight="500">Score and cost</text>
+
+  <g fill="#202e46" font-family="Avenir Next, Trebuchet MS, sans-serif" font-size="20" font-weight="500">
+    <text x="80" y="373">Terminal-Bench</text>
+    <text x="80" y="421">FrontierCode</text>
+    <text x="80" y="469">Terminal-Bench Science</text>
+  </g>
+  <g stroke="#d7e0ec" stroke-width="1">
+    <path d="M80 390H500 M80 438H500 M80 486H500"/>
+  </g>
+  <path d="M80 531H500" stroke="#d7e0ec" stroke-width="1"/>
+  <text x="80" y="570" fill="#2454a6" font-family="Avenir Next, Trebuchet MS, sans-serif" font-size="19" font-weight="600">API &amp; subscription pricing</text>
+
+  <g stroke="#d7e0ec" stroke-width="1">
+    <path d="M650 178V458 M740 178V458 M830 178V458 M920 178V458 M1010 178V458 M1100 178V458"/>
+    <path d="M650 178H1100 M650 234H1100 M650 290H1100 M650 346H1100 M650 402H1100 M650 458H1100"/>
+  </g>
+  <g stroke="#2454a6" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M650 458V165 M650 458H1112"/>
+  </g>
+  <path d="M650 155l-7 12h14z M1122 458l-12-7v14z" fill="#2454a6"/>
+  <g fill="#202e46" font-family="Avenir Next, Trebuchet MS, sans-serif" font-size="18" font-weight="600">
+    <text x="650" y="137">Score</text>
+    <text x="650" y="509">Cost / run</text>
+  </g>
+</svg>
