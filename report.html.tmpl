@@ -4,23 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title data-i18n="title">Model comparison — score and cost</title>
-  <meta name="description" content="Compare model benchmark scores and API and subscription costs across Terminal-Bench, FrontierCode, and Terminal-Bench Science.">
+  <title data-i18n="title">Model comparison — score and estimated no-cache API and subscription rates</title>
+  <meta name="description" content="Compare benchmark scores and estimated no-cache API and subscription rates in USD per 1M total tokens across Terminal-Bench, FrontierCode, and Terminal-Bench Science.">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Model comparison — score and cost">
-  <meta property="og:description" content="Compare model benchmark scores and API and subscription costs across Terminal-Bench, FrontierCode, and Terminal-Bench Science.">
+  <meta property="og:title" content="Model comparison — score and estimated no-cache API and subscription rates">
+  <meta property="og:description" content="Compare benchmark scores and estimated no-cache API and subscription rates in USD per 1M total tokens across Terminal-Bench, FrontierCode, and Terminal-Bench Science.">
   <meta property="og:url" content="https://takumi3488.github.io/leaderboards/">
   <meta property="og:site_name" content="Model comparison">
   <meta property="og:image" content="https://takumi3488.github.io/leaderboards/og-image.png">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Model comparison — benchmark scores and API and subscription costs across Terminal-Bench, FrontierCode, and Terminal-Bench Science">
+  <meta property="og:image:alt" content="Model comparison — benchmark scores and estimated no-cache API and subscription rates in USD per 1M total tokens">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Model comparison — score and cost">
-  <meta name="twitter:description" content="Compare model benchmark scores and API and subscription costs across Terminal-Bench, FrontierCode, and Terminal-Bench Science.">
+  <meta name="twitter:title" content="Model comparison — score and estimated no-cache API and subscription rates">
+  <meta name="twitter:description" content="Compare benchmark scores and estimated no-cache API and subscription rates in USD per 1M total tokens across Terminal-Bench, FrontierCode, and Terminal-Bench Science.">
   <meta name="twitter:image" content="https://takumi3488.github.io/leaderboards/og-image.png">
-  <meta name="twitter:image:alt" content="Model comparison — benchmark scores and API and subscription costs across Terminal-Bench, FrontierCode, and Terminal-Bench Science">
+  <meta name="twitter:image:alt" content="Model comparison — benchmark scores and estimated no-cache API and subscription rates in USD per 1M total tokens">
   <style>
     :root {
       color-scheme: light;
@@ -185,7 +185,7 @@
     <header class="masthead">
       <div>
         <h1 data-i18n="titleHeading">Model comparison</h1>
-        <p class="subtitle" data-i18n="subtitle">Benchmark score and display cost per run</p>
+        <p id="report-subtitle" class="subtitle" data-i18n="subtitle">Benchmark score and estimated no-cache USD per 1M total tokens</p>
       </div>
       <div class="updated" aria-label="Data update information" data-i18n-aria-label="updatedLabel">
         <p><span data-i18n="generatedAtLabel">Report generated:</span> <time id="generated-at"></time></p>
@@ -200,10 +200,17 @@
           <select id="benchmark-select"></select>
         </div>
         <fieldset class="control">
-          <legend data-i18n="costDisplayLegend">Cost display</legend>
+          <legend data-i18n="costDisplayLegend">Billing</legend>
           <div class="choice-row">
-            <label><input type="radio" name="cost-mode" value="api"> <span data-i18n="apiMode">API</span></label>
+            <label><input type="radio" name="cost-mode" value="api"> <span data-i18n="apiMode">API estimate</span></label>
             <label><input type="radio" name="cost-mode" value="subscription" checked> <span data-i18n="subscriptionMode">Subscription estimate</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="control">
+          <legend data-i18n="costBasisLegend">Pricing basis</legend>
+          <div class="choice-row">
+            <label><input type="radio" name="cost-basis" value="unit" checked> <span data-i18n="unitCostBasis">Per 1M tokens (estimate)</span></label>
+            <label><input type="radio" name="cost-basis" value="rollout"> <span data-i18n="rolloutCostBasis">Per rollout estimate</span></label>
           </div>
         </fieldset>
         <fieldset class="control">
@@ -226,17 +233,17 @@
         <div id="subscription-list" class="sub-list"></div>
       </details>
 
-      <section class="analysis" aria-label="Score and cost comparison" data-i18n-aria-label="analysisLabel">
+      <section class="analysis" aria-label="Score and estimated price comparison" data-i18n-aria-label="analysisLabel">
         <div class="chart-panel">
           <div class="chart-topline">
-            <h2 data-i18n="chartHeading">Score × cost</h2>
+            <h2 data-i18n="chartHeading">Score × unit price</h2>
             <div id="chart-count" class="chart-count" aria-live="polite"></div>
           </div>
-          <p id="chart-note" class="chart-note"></p>
-          <p id="fallback-legend" class="fallback-legend"><span class="fallback-dot" aria-hidden="true"></span> <span data-i18n="fallbackLegend">Hollow circles indicate API fallback (no enabled plan match)</span></p>
+          <p id="chart-note" class="chart-note" aria-live="polite"></p>
+          <p id="fallback-legend" class="fallback-legend"><span class="fallback-dot" aria-hidden="true"></span> <span data-i18n="fallbackLegend">Hollow circles show the estimated API value used when no enabled subscription plan matches</span></p>
           <p id="chart-empty" class="chart-empty" hidden></p>
           <p id="chart-failure" class="chart-failure" role="status" hidden data-i18n="chartFailure">The chart library could not be loaded. Check your network connection. The results table is still available.</p>
-          <div id="chart" role="img" aria-label="Scatter plot of benchmark score and display cost" data-i18n-aria-label="chartLabel"></div>
+          <div id="chart" role="img" aria-label="Scatter plot of benchmark score and estimated USD per 1M total tokens" data-i18n-aria-label="chartLabel"></div>
         </div>
         <aside class="model-panel" aria-labelledby="model-heading">
           <div class="section-heading"><h2 id="model-heading" data-i18n="modelsHeading">Models</h2></div>
@@ -248,18 +255,18 @@
       <section class="table-section" aria-labelledby="table-heading">
         <div class="table-intro">
           <h2 id="table-heading" style="margin:0;font-size:1rem;font-weight:650" data-i18n="resultsHeading">Results</h2>
-          <p data-i18n="resultsDescription">Filtered by the current settings, sorted by score (highest first)</p>
+          <p id="results-description" data-i18n="resultsDescription">Displayed values are estimated USD per 1M total tokens. Filtered by the current settings, sorted by score (highest first)</p>
         </div>
-        <div class="table-scroll" tabindex="0" aria-label="Results table. Scroll horizontally to view all columns" data-i18n-aria-label="tableScrollLabel">
+        <div id="table-scroll" class="table-scroll" tabindex="0" aria-label="Estimated API and selected prices in USD per 1M total tokens. Scroll horizontally to view all columns" data-i18n-aria-label="tableScrollLabel">
           <table>
             <thead><tr>
               <th scope="col" data-i18n="modelColumn">Model</th>
               <th scope="col" data-i18n="agentColumn">Agent</th>
               <th scope="col" data-i18n="effortColumn">Effort</th>
               <th scope="col" class="numeric" id="table-score-heading" data-i18n="scoreHeader">Score</th>
-              <th scope="col" class="numeric" data-i18n="apiUsdColumn">API USD</th>
-              <th scope="col" class="numeric" data-i18n="displayUsdColumn">Display USD</th>
-              <th scope="col" data-i18n="costBasisColumn">Cost basis</th>
+              <th scope="col" class="numeric" id="api-usd-heading" data-i18n="apiUsdColumn">Estimated API USD / 1M total tokens</th>
+              <th scope="col" class="numeric" id="display-usd-heading" data-i18n="displayUsdColumn">Selected estimate USD / 1M total tokens</th>
+              <th scope="col" data-i18n="costBasisColumn">Rate basis</th>
             </tr></thead>
             <tbody id="results-body"></tbody>
           </table>
@@ -269,8 +276,9 @@
       <section class="methodology" aria-labelledby="methodology-heading">
         <h2 id="methodology-heading" data-i18n="methodologyHeading">How to read this report</h2>
         <p id="benchmark-definition"></p>
-        <p data-i18n="subscriptionMethodology">Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench and Terminal-Bench Science, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row's workload (standard, anthropic, low-cache, or measured raw samples); metered rows are "API list price (metered row)", not API usage measurements. Hand-maintained API prices use official price lists.</p>
-        <p data-i18n="scoreMethodology">Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench and Terminal-Bench Science costs are per trial.</p>
+        <p id="api-rate-methodology" data-i18n="apiRateMethodology">API unit rates are no-cache estimates in USD per 1M total tokens: (5 × input price + output price) ÷ 6, a normalized 5:1 input-to-output mix. Cached input and cache-write prices are excluded. Components are selected in this order: valid metered input/output, hand-maintained official input/output, then valid components from other source rows. These estimates are not the original observed API costs.</p>
+        <p id="subscription-methodology" data-i18n="subscriptionMethodology">Subscription rates are estimates: each source subscription rate is scaled by the ratio of the new no-cache API rate to its legacy API reference rate. This assumes the monthly allowance is fully used and the subscription discount rate remains unchanged; it is not observed subscription spend. For rollouts, reported tokens are multiplied by the estimated rate; otherwise, original API cost is used only to infer equivalent token volume. Missing inputs show —, without API fallback.</p>
+        <p data-i18n="scoreMethodology">Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable.</p>
         <p id="benchmark-link-row"></p>
       </section>
 
@@ -287,43 +295,64 @@
       const timeZone = language === 'ja' ? 'Asia/Tokyo' : 'UTC';
       const messages = {
         en: {
-          title: 'Model comparison — score and cost',
+          title: 'Model comparison — score and estimated no-cache API and subscription rates',
           titleHeading: 'Model comparison',
-          subtitle: 'Benchmark score and display cost per run',
+          subtitle: 'Benchmark score and estimated no-cache USD per 1M total tokens',
           skipLink: 'Skip to results',
           updatedLabel: 'Data update information',
           generatedAtLabel: 'Report generated:',
           subscriptionUpdatedLabel: 'Pricing data:',
           controlsLabel: 'Comparison settings',
           benchmarkLabel: 'Benchmark',
-          costDisplayLegend: 'Cost display',
-          apiMode: 'API',
+          costDisplayLegend: 'Billing',
+          costBasisLegend: 'Pricing basis',
+          unitCostBasis: 'Per 1M tokens (estimate)',
+          rolloutCostBasis: 'Per rollout estimate',
+          apiMode: 'API estimate',
           subscriptionMode: 'Subscription estimate',
           axisScaleLegend: 'X-axis scale',
           logScale: 'Logarithmic',
           linearScale: 'Linear',
           subscriptionHeading: 'Plans used for estimates',
-          subscriptionInstruction: 'Toggle plans individually; the lowest enabled matching plan is used for each model.',
-          analysisLabel: 'Score and cost comparison',
-          chartHeading: 'Score × cost',
-          fallbackLegend: 'Hollow circles indicate API fallback (no enabled plan match)',
+          subscriptionInstruction: 'Toggle plans individually. The lowest known estimated no-cache rate is selected; a matching plan with no estimate remains selected and displays —.',
+          analysisLabel: 'Score and estimated price comparison',
+          chartHeading: 'Score × estimated price',
+          fallbackLegend: 'Hollow circles show the estimated API value used when no enabled subscription plan matches',
           chartFailure: 'The chart library could not be loaded. Check your network connection. The results table is still available.',
-          chartLabel: 'Scatter plot of benchmark score and display cost',
+          chartLabel: 'Scatter plot of benchmark score and estimated USD per 1M total tokens',
           modelsHeading: 'Models',
           modelHelp: 'Choose models to display',
           resultsHeading: 'Results',
-          resultsDescription: 'Filtered by the current settings, sorted by score (highest first)',
-          tableScrollLabel: 'Results table. Scroll horizontally to view all columns',
+          resultsDescription: 'Displayed values are estimated USD per 1M total tokens. Filtered by the current settings, sorted by score (highest first)',
+          tableScrollLabel: 'Estimated API and selected prices in USD per 1M total tokens. Scroll results table horizontally to view all columns',
           modelColumn: 'Model',
           agentColumn: 'Agent',
           effortColumn: 'Effort',
           scoreHeader: 'Score',
-          apiUsdColumn: 'API USD',
-          displayUsdColumn: 'Display USD',
-          costBasisColumn: 'Cost basis',
+          apiUsdColumn: 'Estimated API USD / 1M total tokens',
+          displayUsdColumn: 'Selected estimate USD / 1M total tokens',
+          costBasisColumn: 'Rate basis',
           methodologyHeading: 'How to read this report',
-          subscriptionMethodology: 'Subscription cost is tokens per rollout × plan real $/MTok for Terminal-Bench and Terminal-Bench Science, or API cost × plan real $/MTok ÷ model API $/MTok for FrontierCode (output tokens only). real-api-pricing plan rates follow each row’s workload (standard, anthropic, low-cache, or measured raw samples); metered rows are “API list price (metered row)”, not API usage measurements. Hand-maintained API prices use official price lists.',
-          scoreMethodology: 'Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable. Terminal-Bench and Terminal-Bench Science costs are per trial.',
+          apiRateMethodology: 'API unit rates are no-cache estimates in USD per 1M total tokens: (5 × input price + output price) ÷ 6, a normalized 5:1 input-to-output mix. Cached input and cache-write prices are excluded. Components are selected in this order: valid metered input/output, hand-maintained official input/output, then valid components from other source rows. These estimates are not the original observed API costs.',
+          subscriptionMethodology: 'Subscription rates are estimates: each source subscription rate is scaled by the ratio of the new no-cache API rate to its legacy API reference rate. This assumes the monthly allowance is fully used and the subscription discount rate remains unchanged; it is not observed subscription spend. For rollouts, reported tokens are multiplied by the estimated rate; otherwise, original API cost is used only to infer equivalent token volume. Missing inputs show —, without API fallback.',
+          subtitleForBasis: (basis) => basis === 'rollout' ? 'Benchmark score and estimated USD per rollout' : 'Benchmark score and estimated no-cache USD per 1M total tokens',
+          titleForBasis: (basis) => `Model comparison — score and estimated USD ${basis === 'rollout' ? 'per rollout' : 'per 1M total tokens'}`,
+          fallbackLegendForBasis: (basis) => `Hollow circles show the estimated API ${basis === 'rollout' ? 'rollout cost' : 'rate'} used when no enabled subscription plan matches`,
+          apiFallbackForBasis: (basis) => `Estimated API ${basis === 'rollout' ? 'rollout cost' : 'rate'} (no enabled subscription plan match)`,
+          resultsDescriptionForBasis: (basis) => `Displayed values are estimated USD ${basis === 'rollout' ? 'per rollout' : 'per 1M total tokens'}. Filtered by the current settings, sorted by score (highest first)`,
+          tableScrollLabelForBasis: (basis) => `Estimated API and selected prices in USD ${basis === 'rollout' ? 'per rollout' : 'per 1M total tokens'}. Scroll results table horizontally to view all columns`,
+          apiUsdColumnForBasis: (basis) => `Estimated API USD / ${basis === 'rollout' ? 'rollout' : '1M total tokens'}`,
+          displayUsdColumnForBasis: (basis) => `Selected estimate USD / ${basis === 'rollout' ? 'rollout' : '1M total tokens'}`,
+          chartLabelForBasis: (basis) => `Scatter plot of benchmark score and estimated USD ${basis === 'rollout' ? 'per rollout' : 'per 1M total tokens'}`,
+          unitPriceAxisForBasis: (basis) => `Estimated price (USD / ${basis === 'rollout' ? 'rollout' : '1M total tokens'})`,
+          chartDescriptionForBasis: (benchmark, basis) => `${benchmark}: benchmark score vs estimated USD ${basis === 'rollout' ? 'per rollout' : 'per 1M total tokens'}. Missing estimates are omitted; lines connect effort levels for each model and agent.`,
+          apiRateMethodologyForBasis: (basis) => basis === 'rollout'
+            ? 'API rollout costs are no-cache estimates. With reported rollout tokens, estimated cost = tokens ÷ 1,000,000 × the estimated API rate. If tokens are unreported, original API cost is used only to infer equivalent tokens from the legacy API reference rate, then scaled by the new no-cache API rate. The displayed amount is not the original observed API cost.'
+            : 'API unit rates are no-cache estimates in USD per 1M total tokens: (5 × input price + output price) ÷ 6, a normalized 5:1 input-to-output mix. Cached input and cache-write prices are excluded. Components are selected in this order: valid metered input/output, hand-maintained official input/output, then valid components from other source rows. These estimates are not the original observed API costs.',
+          subscriptionMethodologyForBasis: (basis) => basis === 'rollout'
+            ? 'Subscription rollout costs are estimates. With reported per-trial tokens, estimated cost = tokens ÷ 1,000,000 × the estimated subscription rate. If tokens are unreported, original API rollout cost is used only to infer equivalent tokens from the legacy API reference rate, then scaled by the estimated subscription rate. The unit estimate preserves the source subscription-to-legacy-API price ratio, assuming the monthly allowance is fully used and the discount rate stays unchanged. Missing inputs show —; a matched plan never falls back to API cost.'
+            : 'Subscription rates are estimates: each source subscription rate is scaled by the ratio of the new no-cache API rate to its legacy API reference rate. This preserves the source subscription-to-legacy-API price ratio, assuming the monthly allowance is fully used and the discount rate stays unchanged. This is not observed subscription spend. An unknown rate stays —, and a matching plan does not fall back to API.',
+          scoreMethodology: 'Compare scores within each benchmark only. Scores from different benchmarks are not combined or directly comparable.',
           sourcesHeading: 'Data sources',
           unrecorded: 'Not recorded',
           unavailable: '—',
@@ -332,99 +361,118 @@
           monthlyPrice: (amount) => `${amount}/mo`,
           noBenchmarkData: 'No benchmark data is available.',
           scoreDefinition: (value) => `Score: ${value}`,
-          costDefinition: (value) => `Cost: ${value}`,
-          defaultDefinition: 'Scores and costs are based on the selected benchmark data.',
+          defaultDefinition: 'Scores and estimated unit rates are based on the selected benchmark data.',
           definitionDetails: (parts) => `${parts.join('. ')}.`,
           benchmarkLink: 'Benchmark: ',
           sourceData: 'Source data',
           dataSource: 'Data source',
           sourcesUnavailable: 'No source information is available.',
           noModelData: 'No model data is available.',
-          matchedPlanBasis: (plan, rate, confidence) => `${plan} ($${rate}/MTok, ${confidence})`,
-          apiFallback: 'API fallback',
+          matchedPlanBasis: (plan, rate, confidence, rolloutRate) => `${plan} (estimated ${rate} / 1M total tokens${rolloutRate ? `; estimated ${rolloutRate} / rollout` : ''}, ${confidence})`,
           noResults: 'No matching results.',
-          displayCostAxis: 'Display cost (USD)',
-          zeroOnLog: (count) => `zero or below on log scale: ${count}`,
-          negativeOnLinear: (count) => `negative costs on linear scale: ${count}`,
-          chartCount: (count, excluded) => `${count} shown in table${excluded ? `; excluded: ${excluded}` : ''}`,
-          zeroLogNote: 'Costs at or below zero cannot be plotted on a logarithmic axis. They can be shown on a linear axis; the results table always shows all rows.',
-          negativeLinearNote: 'Negative costs cannot be shown in the chart. The results table always shows all rows.',
+          zeroOnLog: (count, basis) => `non-positive ${basis === 'rollout' ? 'estimated rollout costs' : 'estimated rates'} on log scale: ${count}`,
+          negativeOnLinear: (count, basis) => `negative ${basis === 'rollout' ? 'estimated rollout costs' : 'estimated rates'} on linear scale: ${count}`,
+          missingRateCount: (count, basis) => `missing ${basis === 'rollout' ? 'rollout cost estimate' : 'rate estimate'}: ${count}`,
+          chartCount: (count, excluded) => `${count} shown in table${excluded ? `; omitted from chart: ${excluded}` : ''}`,
+          missingRateNote: (basis) => `Rows with no available ${basis === 'rollout' ? 'rollout cost estimate' : 'rate estimate'} are omitted from the chart; the table shows “—”.`,
+          zeroLogNote: (basis) => `Zero or negative ${basis === 'rollout' ? 'estimated rollout costs' : 'estimated rates'} cannot be plotted on a logarithmic axis. Switch to a linear axis to show $0.00 ${basis === 'rollout' ? 'per rollout' : 'per 1M total tokens'}. The table shows all rows.`,
+          negativeLinearNote: (basis) => `Negative ${basis === 'rollout' ? 'estimated rollout costs' : 'estimated rates'} cannot be plotted in the chart. The table shows all rows.`,
           noChartBenchmark: 'There is no data to display for this benchmark.',
           selectModel: 'Select at least one model.',
-          noPositiveCost: 'There are no positive display costs. Switch to a linear axis to show $0 USD.',
+          noRatesAvailable: (basis) => `No ${basis === 'rollout' ? 'rollout cost estimates' : 'rate estimates'} are available to plot; missing values are shown as “—” in the table.`,
+          noPositiveRate: (basis) => `There are no positive ${basis === 'rollout' ? 'rollout cost estimates' : 'rate estimates'}. Switch to a linear axis to show $0.00.`,
           noChartResults: 'There are no results to display.',
-          chartDescription: (benchmark) => `${benchmark} score and display cost. Lines connect effort levels for each model and agent.`,
           retrieved: (date) => `Retrieved: ${date}`
         },
         ja: {
-          title: 'モデル比較 — スコアとコスト',
+          title: 'モデル比較 — スコアとキャッシュなしAPI・サブスク料金の推定',
           titleHeading: 'モデル比較',
-          subtitle: 'ベンチマークスコアと1回あたりの表示コスト',
+          subtitle: 'ベンチマークスコアとキャッシュなし料金の推定（USD / 合計100万トークン）',
           skipLink: '結果へ移動',
           updatedLabel: 'データ更新情報',
           generatedAtLabel: 'レポート作成:',
           subscriptionUpdatedLabel: '価格データ:',
           controlsLabel: '比較条件',
           benchmarkLabel: 'ベンチマーク',
-          costDisplayLegend: 'コスト表示',
-          apiMode: 'API',
-          subscriptionMode: 'サブスク換算',
+          costDisplayLegend: '支払方式',
+          costBasisLegend: '料金基準',
+          unitCostBasis: '100万トークン単価（推定）',
+          rolloutCostBasis: '実測量換算（1試行）',
+          apiMode: 'API推定',
+          subscriptionMode: 'サブスク推定',
           axisScaleLegend: '横軸スケール',
           logScale: '対数',
           linearScale: '線形',
           subscriptionHeading: '換算に使うプラン',
-          subscriptionInstruction: 'プランを個別に ON/OFF できます。有効な一致プランのうち最安値をモデルごとに使います。',
-          analysisLabel: 'スコアとコストの比較',
-          chartHeading: 'スコア × コスト',
-          fallbackLegend: '中抜き丸は API fallback（有効なプラン一致なし）',
+          subscriptionInstruction: 'プランを個別に ON/OFF できます。推定単価が既知の一致プランでは最安値を選びます。単価不明の一致プランも一致状態を保ち、— と表示します。',
+          analysisLabel: 'スコアと推定料金の比較',
+          chartHeading: 'スコア × 推定料金',
+          fallbackLegend: '中抜き丸は、一致する有効なサブスクプランがなく API の推定値を使う点',
           chartFailure: 'グラフライブラリを読み込めませんでした。ネットワーク接続を確認してください。結果表は引き続き利用できます。',
-          chartLabel: 'ベンチマークスコアと表示コストの散布図',
+          chartLabel: 'ベンチマークスコアと推定USD単価の散布図',
           modelsHeading: 'モデル',
           modelHelp: '表示するモデルを選択',
           resultsHeading: '結果一覧',
-          resultsDescription: '現在の条件で絞り込み、スコアの高い順に表示',
-          tableScrollLabel: '結果一覧。横にスクロールできます',
+          resultsDescription: '表示単価はキャッシュなし料金の推定（入力・出力の合計100万トークンあたりのUSD）。現在の条件で絞り込み、スコアの高い順に表示',
+          tableScrollLabel: 'APIと選択した推定料金（USD / 合計100万トークン）の結果表。横にスクロールできます',
           modelColumn: 'モデル',
           agentColumn: 'エージェント',
           effortColumn: 'Effort',
           scoreHeader: 'スコア',
-          apiUsdColumn: 'API USD',
-          displayUsdColumn: '表示 USD',
-          costBasisColumn: 'コスト基準',
+          apiUsdColumn: 'API推定 USD / 合計100万トークン',
+          displayUsdColumn: '選択した推定 USD / 合計100万トークン',
+          costBasisColumn: '単価の基準',
           methodologyHeading: '読み方と方法',
-          subscriptionMethodology: 'サブスク換算は、Terminal-Bench と Terminal-Bench Science では rollout あたりのトークン数 × プラン実質 $/MTok、出力トークンのみの FrontierCode では API 費用 × プラン実質 $/MTok ÷ モデル API $/MTok です。real-api-pricing のプラン価格は各行の workload（standard / anthropic / low-cache / measured raw samples）に従います。metered 行は「API list price (metered row)」で、API 使用量の実測値ではありません。手動価格は公式価格表に基づきます。',
-          scoreMethodology: 'スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。Terminal-Bench と Terminal-Bench Science の費用は1試行あたりです。',
+          apiRateMethodology: 'API単価はキャッシュなし料金の推定です。入力・出力の合計100万トークンあたり、(5 × 入力価格 + 出力価格) ÷ 6 で計算します。これは入力:出力 = 5:1 に正規化したmixです。キャッシュ入力・cache-write価格は含めません。componentは有効なmetered行、手動設定した公式Input/Output価格、その他ソース行の有効componentの順に採用します。表示額は原本の実測API費用ではありません。',
+          subscriptionMethodology: 'サブスク単価は推定値です。各ソース行のサブスク単価に、新しいキャッシュなしAPI単価 ÷ 旧API参照単価を掛け、元のサブスクと旧APIの料金比を保ちます。月枠を使い切り、割引率が変わらない仮定であり、実際のサブスク支出ではありません。rolloutでは報告済みtokensに推定単価を掛けます。tokens未報告時は、原本API費用を相当tokens量の推定にだけ使います。必要情報がなければ — とし、APIに置き換えません。',
+          subtitleForBasis: (basis) => basis === 'rollout' ? 'ベンチマークスコアと実測量換算（1試行、費用は推定）' : 'ベンチマークスコアとキャッシュなし料金の推定（USD / 合計100万トークン）',
+          titleForBasis: (basis) => `モデル比較 — スコアと${basis === 'rollout' ? '実測量換算（1試行、費用は推定）' : 'キャッシュなし料金の推定（USD / 合計100万トークン）'}`,
+          fallbackLegendForBasis: (basis) => `中抜き丸は、一致する有効なサブスクプランがなく API の${basis === 'rollout' ? '1試行あたりの推定費用' : '推定単価'}を使う点`,
+          apiFallbackForBasis: (basis) => `APIの${basis === 'rollout' ? '推定費用' : '推定単価'}（一致する有効なサブスクプランなし）`,
+          resultsDescriptionForBasis: (basis) => `${basis === 'rollout' ? '1試行あたりの費用は推定値' : '単価はキャッシュなし料金の推定（入力・出力の合計100万トークンあたりのUSD）'}。現在の条件で絞り込み、スコアの高い順に表示`,
+          tableScrollLabelForBasis: (basis) => `APIと選択した推定料金（${basis === 'rollout' ? '1試行あたり' : '合計100万トークンあたり'}のUSD）の結果表。横にスクロールできます`,
+          apiUsdColumnForBasis: (basis) => `API推定 USD / ${basis === 'rollout' ? '1試行' : '合計100万トークン'}`,
+          displayUsdColumnForBasis: (basis) => `選択した推定 USD / ${basis === 'rollout' ? '1試行' : '合計100万トークン'}`,
+          chartLabelForBasis: (basis) => `ベンチマークスコアと${basis === 'rollout' ? '1試行あたりの推定費用' : 'キャッシュなし料金の推定'}の散布図`,
+          unitPriceAxisForBasis: (basis) => `推定${basis === 'rollout' ? '費用' : '単価'}（USD / ${basis === 'rollout' ? '1試行' : '合計100万トークン'}）`,
+          chartDescriptionForBasis: (benchmark, basis) => `${benchmark}のスコアと${basis === 'rollout' ? '1試行あたりの推定費用' : 'キャッシュなし料金の推定（合計100万トークンあたりのUSD）'}。推定値のない行は除外し、モデルとエージェントごとの effort を線で結びます。`,
+          apiRateMethodologyForBasis: (basis) => basis === 'rollout'
+            ? 'APIのrollout費用はキャッシュなし料金の推定です。tokens報告がある場合、推定費用 = tokens ÷ 1,000,000 × API推定単価。未報告の場合は、原本のAPI費用から旧API参照単価で相当tokens量を推定し、新しいキャッシュなしAPI単価を掛けます。表示額は原本の実測API費用そのものではありません。'
+            : 'API単価はキャッシュなし料金の推定です。入力・出力の合計100万トークンあたり、(5 × 入力価格 + 出力価格) ÷ 6 で計算します。これは入力:出力 = 5:1 に正規化したmixです。キャッシュ入力・cache-write価格は含めません。componentは有効なmetered行、手動設定した公式Input/Output価格、その他ソース行の有効componentの順に採用します。表示額は原本の実測API費用ではありません。',
+          subscriptionMethodologyForBasis: (basis) => basis === 'rollout'
+            ? 'サブスクrollout費用は推定値です。試行ごとのtokens報告がある場合、推定費用 = tokens ÷ 1,000,000 × サブスク推定単価。未報告の場合は原本API費用から旧API参照単価で相当tokens量を推定し、サブスク推定単価を掛けます。単価推定は、月枠を使い切り割引率が変わらない仮定で、ソースのサブスクと旧APIの料金比を保ちます。必要情報がなければ — とし、一致プランをAPI費用に置き換えません。'
+            : 'サブスク単価は推定値です。各ソース行のサブスク単価に、新しいキャッシュなしAPI単価 ÷ 旧API参照単価を掛け、元のサブスクと旧APIの料金比を保ちます。月枠を使い切り、割引率が変わらない仮定であり、実際のサブスク支出ではありません。不明な単価は — とし、一致プランをAPI単価に置き換えません。',
+          scoreMethodology: 'スコアは各ベンチマーク内で比較します。異なるベンチマークのスコアは合算・直接比較しません。',
           sourcesHeading: 'データソース',
           unrecorded: '未記録',
+          unavailable: '—',
           noBenchmark: (number) => `ベンチマーク ${number}`,
           enabledPlans: (enabled, total) => `${enabled} / ${total} プラン有効`,
           monthlyPrice: (amount) => `${amount}/月`,
           noBenchmarkData: 'ベンチマークのデータがありません。',
           scoreDefinition: (value) => `スコア: ${value}`,
-          costDefinition: (value) => `費用: ${value}`,
-          defaultDefinition: 'スコアと費用は、選択したベンチマークのデータに基づきます。',
+          defaultDefinition: 'スコアと単価推定は、選択したベンチマークのデータに基づきます。',
           definitionDetails: (parts) => `${parts.join('。')}。`,
           benchmarkLink: 'ベンチマーク: ',
           sourceData: '元データ',
           dataSource: 'データソース',
           sourcesUnavailable: 'ソース情報がありません。',
           noModelData: 'モデルデータがありません。',
-          matchedPlanBasis: (plan, rate, confidence) => `${plan}（$${rate}/MTok、信頼度 ${confidence}）`,
-          apiFallback: 'API fallback',
+          matchedPlanBasis: (plan, rate, confidence, rolloutRate) => `${plan}（推定 ${rate} / 合計100万トークン${rolloutRate ? `、推定 ${rolloutRate} / 1試行` : ''}、信頼度 ${confidence}）`,
           noResults: '該当する結果はありません。',
-          displayCostAxis: '表示コスト（USD）',
-          zeroOnLog: (count) => `対数軸で 0 以下 ${count} 件`,
-          negativeOnLinear: (count) => `線形軸で負の費用 ${count} 件`,
-          chartCount: (count, excluded) => `${count} 件を表に表示${excluded ? `、${excluded}を除外` : ''}`,
-          zeroLogNote: '対数軸では0以下の費用を描画できません。線形軸では表示でき、結果表には常に全件を表示します。',
-          negativeLinearNote: '負の費用は図に表示できません。結果表には全件を表示します。',
+          zeroOnLog: (count, basis) => `対数軸で0以下の${basis === 'rollout' ? '推定費用' : '推定単価'}: ${count}件`,
+          negativeOnLinear: (count, basis) => `線形軸で負の${basis === 'rollout' ? '推定費用' : '推定単価'}: ${count}件`,
+          missingRateCount: (count, basis) => `${basis === 'rollout' ? '推定費用未取得' : '推定単価未取得'}: ${count}件`,
+          chartCount: (count, excluded) => `${count} 件を表に表示${excluded ? `、グラフから除外: ${excluded}` : ''}`,
+          missingRateNote: (basis) => `${basis === 'rollout' ? '推定費用' : '推定単価'}がない行はグラフから除外し、表では「—」と表示します。`,
+          zeroLogNote: (basis) => `対数軸では0以下の${basis === 'rollout' ? '推定費用' : '推定単価'}を描画できません。線形軸では0 USD ${basis === 'rollout' ? '/ 1試行' : '/ 合計100万トークン'}を表示できます。表には常に全件を表示します。`,
+          negativeLinearNote: (basis) => `負の${basis === 'rollout' ? '推定費用' : '推定単価'}はグラフに表示できません。表には常に全件を表示します。`,
           noChartBenchmark: 'このベンチマークに表示できるデータがありません。',
           selectModel: 'モデルを1つ以上選択してください。',
-          noPositiveCost: '正の表示コストがありません。線形軸に切り替えると0 USDを表示できます。',
+          noRatesAvailable: (basis) => `グラフに表示できる${basis === 'rollout' ? '推定費用' : '推定単価'}がありません。未取得の値は表で「—」と表示されます。`,
+          noPositiveRate: (basis) => `正の${basis === 'rollout' ? '推定費用' : '推定単価'}がありません。線形軸に切り替えると0 USDを表示できます。`,
           noChartResults: '表示できる結果がありません。',
-          chartDescription: (benchmark) => `${benchmark}のスコアと表示コスト。モデルとエージェントごとの努力水準を線で結んでいます。`,
-          unavailable: '—',
-          retrieved: (date) => `取得: ${date}`
+          retrieved: (date) => `取得日時: ${date}`
         }
       };
       const t = (key, ...args) => {
@@ -453,6 +501,7 @@
       const axisUSDFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 3 });
       const effortOrder = new Map(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].map((effort, index) => [effort, index]));
       let mode = 'subscription';
+      let costBasis = 'unit';
       let narrowPlot = window.matchMedia('(max-width: 600px)').matches;
       let axisScale = 'log';
       let chart = null;
@@ -461,6 +510,11 @@
       const benchmarkSelect = $('benchmark-select');
 
       function text(value) { return value == null ? '' : String(value); }
+      function nullableNumber(value) {
+        if (value == null) return null;
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+      }
       function normalizeEffort(value) { return text(value).toLowerCase().replace(/[^a-z0-9]/g, ''); }
       function compareEffortRows(a, b) {
         const aEffort = text(a.point.effort);
@@ -472,7 +526,8 @@
           if (bRank < 0) return -1;
           return aRank - bRank;
         }
-        return a.cost - b.cost ||
+        const rateOrder = a.rate === null ? (b.rate === null ? 0 : 1) : (b.rate === null ? -1 : a.rate - b.rate);
+        return rateOrder ||
           aEffort.localeCompare(bEffort, undefined, { numeric: true, sensitivity: 'base' }) ||
           Number(a.point.score) - Number(b.point.score) ||
           text(a.point.id).localeCompare(text(b.point.id));
@@ -499,20 +554,17 @@
           : `${parts.month} ${parts.day}, ${parts.year}, ${parts.hour}:${parts.minute} ${parts.dayPeriod} ${parts.timeZoneName}`;
       }
       function formatUSD(value) {
-        const amount = Number(value);
-        if (!Number.isFinite(amount)) return t('unavailable');
+        const amount = nullableNumber(value);
+        if (amount === null) return t('unavailable');
         return amount === 0 ? '$0.00' : usdFormatter.format(amount);
       }
       function formatAxisUSD(value) {
-        const amount = Number(value);
-        if (!Number.isFinite(amount)) return t('unavailable');
+        const amount = nullableNumber(value);
+        if (amount === null) return t('unavailable');
         return amount === 0 ? '$0.00' : axisUSDFormatter.format(amount);
       }
       function formatScore(value) {
         return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Number(value));
-      }
-      function formatRate(value) {
-        return new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(value);
       }
       function safeURL(value) {
         try {
@@ -552,11 +604,13 @@
       function restoreURLState() {
         const params = new URLSearchParams(window.location.search);
         mode = params.get('cost-mode') === 'api' ? 'api' : 'subscription';
+        costBasis = params.get('cost-basis') === 'rollout' ? 'rollout' : 'unit';
         axisScale = params.get('axis-scale') === 'linear' ? 'linear' : 'log';
         benchmarkSelect.value = '0';
         const benchmarkIndex = (REPORT.benchmarks || []).findIndex((benchmark) => benchmark.id === params.get('benchmark'));
         if (benchmarkIndex >= 0) benchmarkSelect.value = String(benchmarkIndex);
         document.querySelectorAll('input[name="cost-mode"]').forEach((input) => { input.checked = input.value === mode; });
+        document.querySelectorAll('input[name="cost-basis"]').forEach((input) => { input.checked = input.value === costBasis; });
         document.querySelectorAll('input[name="axis-scale"]').forEach((input) => { input.checked = input.value === axisScale; });
 
         modelEnabled.clear();
@@ -582,10 +636,11 @@
       function writeURLState() {
         const url = new URL(window.location.href);
         const params = url.searchParams;
-        ['benchmark', 'cost-mode', 'axis-scale', 'disabled-plan', 'model-on', 'model-off'].forEach((key) => params.delete(key));
+        ['benchmark', 'cost-mode', 'cost-basis', 'axis-scale', 'disabled-plan', 'model-on', 'model-off'].forEach((key) => params.delete(key));
         const benchmark = activeBenchmark();
         params.set('benchmark', text(benchmark && benchmark.id));
         params.set('cost-mode', mode);
+        params.set('cost-basis', costBasis);
         params.set('axis-scale', axisScale);
         (REPORT.subscriptions || []).forEach((subscription) => {
           if (subscriptionEnabled.get(subscription.name) === false) params.append('disabled-plan', subscription.name);
@@ -645,6 +700,16 @@
         });
       }
       function renderDefinitions() {
+        document.title = t('titleForBasis', costBasis);
+        $('report-subtitle').textContent = t('subtitleForBasis', costBasis);
+        $('results-description').textContent = t('resultsDescriptionForBasis', costBasis);
+        $('table-scroll').setAttribute('aria-label', t('tableScrollLabelForBasis', costBasis));
+        $('api-usd-heading').textContent = t('apiUsdColumnForBasis', costBasis);
+        $('display-usd-heading').textContent = t('displayUsdColumnForBasis', costBasis);
+        $('chart').setAttribute('aria-label', t('chartLabelForBasis', costBasis));
+        $('fallback-legend').querySelector('[data-i18n]').textContent = t('fallbackLegendForBasis', costBasis);
+        $('api-rate-methodology').textContent = t('apiRateMethodologyForBasis', costBasis);
+        $('subscription-methodology').textContent = t('subscriptionMethodologyForBasis', costBasis);
         const benchmark = activeBenchmark();
         $('table-score-heading').textContent = benchmark && benchmark.scoreLabel ? `${t('scoreHeader')} (${benchmark.scoreLabel})` : t('scoreHeader');
         const definition = $('benchmark-definition');
@@ -653,7 +718,6 @@
         } else {
           const details = [];
           if (benchmark.scoreLabel) details.push(t('scoreDefinition', benchmark.scoreLabel));
-          if (benchmark.costNote) details.push(t('costDefinition', benchmark.costNote));
           definition.textContent = details.length ? t('definitionDetails', details) : t('defaultDefinition');
         }
         const linkRow = $('benchmark-link-row');
@@ -745,17 +809,23 @@
         return benchmark.points.filter((point) => isModelEnabled(benchmark, modelKey(point))).map((point) => {
           const offer = chosenOffer(point);
           const matched = offer !== null;
+          const rate = matched
+            ? nullableNumber(costBasis === 'rollout' ? offer.rolloutCost : offer.usdPerMTok)
+            : nullableNumber(costBasis === 'rollout' ? point.apiRolloutCost : point.apiUSDPerMTok);
           return {
             point,
-            cost: matched ? Number(offer.cost) : Number(point.apiCost),
+            rate,
             offer: matched ? offer : null,
             fallback: mode === 'subscription' && !matched
           };
         });
       }
       function basisText(row) {
-        if (row.offer) return t('matchedPlanBasis', text(row.offer.plan), formatRate(row.offer.usdPerMTok), text(row.offer.confidence));
-        return row.fallback ? t('apiFallback') : t('apiMode');
+        if (row.offer) {
+          const rolloutRate = costBasis === 'rollout' ? formatUSD(row.rate) : '';
+          return t('matchedPlanBasis', text(row.offer.plan), formatUSD(row.offer.usdPerMTok), text(row.offer.confidence), rolloutRate);
+        }
+        return row.fallback ? t('apiFallbackForBasis', costBasis) : t('apiMode');
       }
       function renderTable() {
         const body = $('results-body');
@@ -777,8 +847,8 @@
           tr.append(
             makeCell(point.model), makeCell(point.agent), makeCell(point.effort),
             makeCell(formatScore(point.score), 'numeric'),
-            makeCell(formatUSD(point.apiCost), 'numeric money'),
-            makeCell(formatUSD(row.cost), 'numeric money'),
+            makeCell(formatUSD(costBasis === 'rollout' ? point.apiRolloutCost : point.apiUSDPerMTok), 'numeric money'),
+            makeCell(formatUSD(row.rate), 'numeric money'),
             makeCell(basisText(row), 'basis')
           );
           body.append(tr);
@@ -791,24 +861,35 @@
         const point = row.point;
         const basis = basisText(row);
         const line = (label, value) => `<div class="tip-row"><span class="tip-label">${escapeHTML(label)}</span><span>${escapeHTML(value)}</span></div>`;
-        return `<div class="tip-title">${escapeHTML(point.model)}</div>${line(t('agentColumn'), point.agent)}${line(t('effortColumn'), point.effort)}${line(t('scoreHeader'), formatScore(point.score))}${line(t('apiUsdColumn'), formatUSD(point.apiCost))}${line(t('displayUsdColumn'), formatUSD(row.cost))}${line(t('costBasisColumn'), basis)}`;
+        return `<div class="tip-title">${escapeHTML(point.model)}</div>${line(t('agentColumn'), point.agent)}${line(t('effortColumn'), point.effort)}${line(t('scoreHeader'), formatScore(point.score))}${line(t('apiUsdColumnForBasis', costBasis), formatUSD(costBasis === 'rollout' ? point.apiRolloutCost : point.apiUSDPerMTok))}${line(t('displayUsdColumnForBasis', costBasis), formatUSD(row.rate))}${line(t('costBasisColumn'), basis)}`;
       }
       function renderChart() {
         const benchmark = activeBenchmark();
         const visibleRows = rowsForBenchmark();
-        const chartableRows = visibleRows.filter((row) => axisScale === 'log' ? row.cost > 0 : row.cost >= 0);
-        const excluded = visibleRows.length - chartableRows.length;
-        const exclusionLabel = axisScale === 'log' ? t('zeroOnLog', excluded) : t('negativeOnLinear', excluded);
-        $('chart-count').textContent = t('chartCount', visibleRows.length, excluded ? exclusionLabel : '');
-        $('chart-note').textContent = excluded ? axisScale === 'log' ? t('zeroLogNote') : t('negativeLinearNote') : '';
+        const missingCount = visibleRows.filter((row) => row.rate === null).length;
+        const nonPositiveCount = visibleRows.filter((row) => row.rate !== null && row.rate <= 0).length;
+        const negativeCount = visibleRows.filter((row) => row.rate !== null && row.rate < 0).length;
+        const chartableRows = visibleRows.filter((row) => row.rate !== null && (axisScale === 'log' ? row.rate > 0 : row.rate >= 0));
+        const exclusionLabels = [];
+        if (missingCount) exclusionLabels.push(t('missingRateCount', missingCount, costBasis));
+        if (axisScale === 'log' && nonPositiveCount) exclusionLabels.push(t('zeroOnLog', nonPositiveCount, costBasis));
+        if (axisScale === 'linear' && negativeCount) exclusionLabels.push(t('negativeOnLinear', negativeCount, costBasis));
+        $('chart-count').textContent = t('chartCount', visibleRows.length, exclusionLabels.join(language === 'ja' ? '、' : '; '));
+        const notes = [];
+        if (missingCount) notes.push(t('missingRateNote', costBasis));
+        if (axisScale === 'log' && nonPositiveCount) notes.push(t('zeroLogNote', costBasis));
+        if (axisScale === 'linear' && negativeCount) notes.push(t('negativeLinearNote', costBasis));
+        $('chart-note').textContent = notes.join(' ');
         const empty = $('chart-empty');
         empty.hidden = chartableRows.length > 0;
         if (!benchmark || !benchmark.points || !benchmark.points.length) {
           empty.textContent = t('noChartBenchmark');
         } else if (!visibleRows.length) {
           empty.textContent = t('selectModel');
+        } else if (!chartableRows.length && missingCount === visibleRows.length) {
+          empty.textContent = t('noRatesAvailable', costBasis);
         } else if (!chartableRows.length && axisScale === 'log') {
-          empty.textContent = t('noPositiveCost');
+          empty.textContent = t('noPositiveRate', costBasis);
         } else {
           empty.textContent = t('noChartResults');
         }
@@ -857,7 +938,7 @@
             label: { show: false },
             labelLayout: { hideOverlap: true, moveOverlap: 'shiftY' },
             data: group.map((row, pointIndex) => ({
-              value: [row.cost, Number(row.point.score)],
+              value: [row.rate, Number(row.point.score)],
               point: row.point,
               row,
               endLabel: `${text(row.point.model)} / ${text(row.point.effort)}`,
@@ -868,7 +949,7 @@
         });
         chart.setOption({
           animation: false,
-          aria: { enabled: true, description: t('chartDescription', benchmark.title || benchmark.id || t('benchmarkLabel')) },
+          aria: { enabled: true, description: t('chartDescriptionForBasis', benchmark.title || benchmark.id || t('benchmarkLabel'), costBasis) },
           grid: { left: narrowPlot ? 44 : 72, right: narrowPlot ? 12 : 28, top: narrowPlot ? 29 : 37, bottom: narrowPlot ? 54 : 67, containLabel: true },
           tooltip: {
             trigger: 'item',
@@ -886,7 +967,7 @@
           xAxis: {
             type: axisScale === 'log' ? 'log' : 'value',
             min: axisScale === 'linear' ? 0 : undefined,
-            name: t('displayCostAxis'),
+            name: t('unitPriceAxisForBasis', costBasis),
             nameLocation: 'middle',
             nameGap: narrowPlot ? 30 : 42,
             axisLabel: { color: '#556783', formatter: formatAxisUSD, hideOverlap: true, fontSize: narrowPlot ? 10 : 12 },
@@ -922,6 +1003,14 @@
           writeURLState();
           renderSubscriptionPanel();
           renderModelLegend();
+          renderViews();
+        }
+      }));
+      document.querySelectorAll('input[name="cost-basis"]').forEach((input) => input.addEventListener('change', () => {
+        if (input.checked) {
+          costBasis = input.value;
+          writeURLState();
+          renderDefinitions();
           renderViews();
         }
       }));

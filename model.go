@@ -1,25 +1,28 @@
 package main
 
-// Costs are USD per rollout; scores are percentages within each benchmark.
+// Scores are benchmark percentages; API and offer prices are USD per million tokens.
 type point struct {
 	ID    string `json:"id"`
 	Model string `json:"model"`
 	Agent string `json:"agent"`
 	// ModelKey is canonicalModel(Model); the page shares model selection across benchmarks by it.
-	ModelKey string   `json:"modelKey"`
-	Effort   string   `json:"effort"`
-	Score    float64  `json:"score"`
-	APICost  float64  `json:"apiCost"`
-	Tokens   *float64 `json:"tokens,omitempty"`
-	Color    string   `json:"color,omitempty"`
-	Offers   []offer  `json:"offers"`
+	ModelKey string  `json:"modelKey"`
+	Effort   string  `json:"effort"`
+	Score    float64 `json:"score"`
+	// APICost and Tokens preserve source metrics; rollout costs use no-cache estimates.
+	APICost        float64  `json:"apiCost"`
+	Tokens         *float64 `json:"tokens,omitempty"`
+	APIUSDPerMTok  *float64 `json:"apiUSDPerMTok"`
+	APIRolloutCost *float64 `json:"apiRolloutCost"`
+	Color          string   `json:"color,omitempty"`
+	Offers         []offer  `json:"offers"`
 }
 
 type offer struct {
-	Plan       string  `json:"plan"`
-	Cost       float64 `json:"cost"`
-	USDPerMTok float64 `json:"usdPerMTok"`
-	Confidence string  `json:"confidence"`
+	Plan        string   `json:"plan"`
+	USDPerMTok  *float64 `json:"usdPerMTok"`
+	RolloutCost *float64 `json:"rolloutCost"`
+	Confidence  string   `json:"confidence"`
 }
 
 type subscription struct {
@@ -28,16 +31,23 @@ type subscription struct {
 }
 
 type pricingPoint struct {
-	Billing               string  `json:"billing"`
-	Plan                  string  `json:"plan"`
-	PlanEN                *string `json:"plan_en"`
-	Vendor                string  `json:"vendor"`
-	Model                 string  `json:"model"`
-	PriceUSD              float64 `json:"price_usd"`
-	ListBlendedUSDPerMTok float64 `json:"list_blended_usd_per_mtok"`
-	RealUSDPerMTok        float64 `json:"real_usd_per_mtok"`
-	Unmetered             bool    `json:"unmetered"`
-	Confidence            string  `json:"confidence"`
+	Billing               string     `json:"billing"`
+	Plan                  string     `json:"plan"`
+	PlanEN                *string    `json:"plan_en"`
+	Vendor                string     `json:"vendor"`
+	Model                 string     `json:"model"`
+	PriceUSD              float64    `json:"price_usd"`
+	ListBlendedUSDPerMTok float64    `json:"list_blended_usd_per_mtok"`
+	ListPrice             *listPrice `json:"list_price"`
+	RealUSDPerMTok        float64    `json:"real_usd_per_mtok"`
+	Unmetered             bool       `json:"unmetered"`
+	Confidence            string     `json:"confidence"`
+}
+
+type listPrice struct {
+	Input    float64 `json:"input"`
+	Output   float64 `json:"output"`
+	Currency string  `json:"currency"`
 }
 
 type pricingData struct {
