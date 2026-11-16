@@ -533,6 +533,58 @@
         benchmarkSelect.disabled = benchmarks.length === 0;
         benchmarkSelect.value = benchmarks.length ? '0' : '';
       }
+      function restoreURLState() {
+        const params = new URLSearchParams(window.location.search);
+        mode = params.get('cost-mode') === 'api' ? 'api' : 'subscription';
+        axisScale = params.get('axis-scale') === 'linear' ? 'linear' : 'log';
+        benchmarkSelect.value = '0';
+        const benchmarkIndex = (REPORT.benchmarks || []).findIndex((benchmark) => benchmark.id === params.get('benchmark'));
+        if (benchmarkIndex >= 0) benchmarkSelect.value = String(benchmarkIndex);
+        document.querySelectorAll('input[name="cost-mode"]').forEach((input) => { input.checked = input.value === mode; });
+        document.querySelectorAll('input[name="axis-scale"]').forEach((input) => { input.checked = input.value === axisScale; });
+
+        modelEnabled.clear();
+        subscriptionEnabled.clear();
+        const subscriptionNames = new Set();
+        (REPORT.subscriptions || []).forEach((subscription) => {
+          subscriptionNames.add(subscription.name);
+          subscriptionEnabled.set(subscription.name, true);
+        });
+        params.getAll('disabled-plan').forEach((name) => {
+          if (subscriptionNames.has(name)) subscriptionEnabled.set(name, false);
+        });
+        const modelKeys = new Set();
+        (REPORT.benchmarks || []).forEach((benchmark) => {
+          (benchmark.points || []).forEach((point) => modelKeys.add(modelKey(point)));
+        });
+        params.forEach((value, key) => {
+          if ((key === 'model-on' || key === 'model-off') && modelKeys.has(value)) {
+            modelEnabled.set(value, key === 'model-on');
+          }
+        });
+      }
+      function writeURLState() {
+        const url = new URL(window.location.href);
+        const params = url.searchParams;
+        ['benchmark', 'cost-mode', 'axis-scale', 'disabled-plan', 'model-on', 'model-off'].forEach((key) => params.delete(key));
+        const benchmark = activeBenchmark();
+        params.set('benchmark', text(benchmark && benchmark.id));
+        params.set('cost-mode', mode);
+        params.set('axis-scale', axisScale);
+        (REPORT.subscriptions || []).forEach((subscription) => {
+          if (subscriptionEnabled.get(subscription.name) === false) params.append('disabled-plan', subscription.name);
+        });
+        modelEnabled.forEach((enabled, key) => params.append(enabled ? 'model-on' : 'model-off', key));
+        if (url.href !== window.location.href) window.history.pushState(null, '', url);
+      }
+      function restoreFromURL() {
+        restoreURLState();
+        renderSubscriptionPanel();
+        renderDefinitions();
+        renderModelLegend();
+        renderViews();
+      }
+      window.addEventListener('popstate', restoreFromURL);
       function renderDates() {
         $('generated-at').textContent = formatDate(REPORT.generatedAt);
         $('subscription-updated').textContent = formatDate(REPORT.subscriptionUpdated);
@@ -558,6 +610,7 @@
           checkbox.checked = subscriptionEnabled.get(subscription.name) !== false;
           checkbox.addEventListener('change', () => {
             subscriptionEnabled.set(subscription.name, checkbox.checked);
+            writeURLState();
             renderSubscriptionPanel();
             renderModelLegend();
             renderViews();
@@ -646,6 +699,7 @@
           checkbox.checked = isModelEnabled(benchmark, key);
           checkbox.addEventListener('change', () => {
             modelEnabled.set(key, checkbox.checked);
+            writeURLState();
             renderViews();
           });
           const swatch = document.createElement('span');
@@ -841,6 +895,7 @@
         renderChart();
       }
       benchmarkSelect.addEventListener('change', () => {
+        writeURLState();
         renderDefinitions();
         renderModelLegend();
         renderViews();
@@ -848,6 +903,7 @@
       document.querySelectorAll('input[name="cost-mode"]').forEach((input) => input.addEventListener('change', () => {
         if (input.checked) {
           mode = input.value;
+          writeURLState();
           renderSubscriptionPanel();
           renderModelLegend();
           renderViews();
@@ -856,11 +912,12 @@
       document.querySelectorAll('input[name="axis-scale"]').forEach((input) => input.addEventListener('change', () => {
         if (input.checked) {
           axisScale = input.value;
+          writeURLState();
           renderChart();
         }
       }));
       initBenchmarks();
-      renderDates();
+      restoreURLState();
       renderSubscriptionPanel();
       renderDefinitions();
       renderSources();
